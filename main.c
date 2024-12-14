@@ -1,5 +1,6 @@
 #include "hw2.h"
 
+//hello igor
 
 //MUTEXES
 static int is_running = 1;
