@@ -1,12 +1,21 @@
+#include <limits.h>
+
 #include "hw2.h"
 
-//hello igor
+//global time statistic veriables
+long long jobs_turnaround_time = 0;
+long long jobs_mintime = LLONG_MAX;
+long long jobs_maxtime = 0;
+//global numer of jobs statistic veriable
+int volatile number_of_jobs = 0;
 
 //MUTEXES
-static int is_running = 1;
+int volatile is_running = 1;
 pthread_mutex_t fifo_mutex = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t counter_mutex[MAX_NUM_OF_COUNTERS];
 pthread_mutex_t running_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t global_time_vars_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 //COND VAR
 pthread_cond_t wake_up = PTHREAD_COND_INITIALIZER;
@@ -141,8 +150,19 @@ void* worker_main(void *data)
     jobs_fifo* fifo = wdata->fifo;
     int whoami = wdata->thread_number;
     time_t* start_known_to_w = wdata->start_time_ptr;
+    //init log file
+
     while (1)
     {
+        // Open the worker log file
+        char worker_log_file_name[20];
+        sprintf(worker_log_file_name, "thread%04d.txt", whoami); // Zero-padded to 4 digits
+        FILE* thread_log_file;
+        thread_log_file = fopen(worker_log_file_name, "w");
+        if (thread_log_file == NULL) {
+            printf("worker %d failed to open his log file with path %s", whoami, worker_log_file_name);
+            exit(1);
+        }
         pthread_mutex_lock(&running_mutex);
         if (!is_running)
         {
@@ -158,8 +178,13 @@ void* worker_main(void *data)
         char* command = fifo_pop(fifo);
         pthread_mutex_unlock(&fifo_mutex);
         char **job = NULL;
+        //Jobs starts here
+        //calc start jobs time
         int count_commands = parse_command(command,job);
-
+        time_t job_started_time;
+        job_started_time = clock();
+        long long job_start_elapsed_time = ((long long)(job_started_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
+        fprintf(thread_log_file, "TIME %lld: START job %s\n", job_start_elapsed_time, command);
         // Job exec
         for (int i = 0; i < count_commands; i++){
             char* command_token = strtok(job[i], " ");
@@ -191,13 +216,29 @@ void* worker_main(void *data)
                 break;
             }
         }
+        time_t job_ended_time = clock();
+        long long job_end_elapsed_time = ((long long)(job_ended_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
+        fprintf(thread_log_file, "TIME %lld: END job %s\n", job_end_elapsed_time, command);
         free_parsed_command(job,count_commands);
+        //statistics area
+        pthread_mutex_lock(&global_time_vars_mutex);
+        long long delta_worktime = ((long long)(job_ended_time - job_start_elapsed_time) *1000) / CLOCKS_PER_SEC;
+        jobs_turnaround_time += delta_worktime;
+        if (delta_worktime < jobs_mintime) {
+            jobs_mintime = delta_worktime;
+        }
+        if (delta_worktime > jobs_maxtime) {
+            jobs_maxtime = delta_worktime;
+        }
+        number_of_jobs++;
+        pthread_mutex_unlock(&global_time_vars_mutex);
         // FIX ME - IF dispatcher wake some threads or all threads after pushing to FIFO the next line is not needed
-        pthread_cond_broadcast(&wake_up);
+        //pthread_cond_broadcast(&wake_up);
+
     }
+    return 0;
 
 }
-
 
 //Dispatcher code
 
@@ -205,6 +246,7 @@ int main(int argc, char* argv[])
 {
     //Start of the timer
     time_t start_time;
+    start_time = clock();
     //Initialize the dispatcher
     jobs_fifo fifo;
     bool full = false;
