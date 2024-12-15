@@ -39,10 +39,10 @@ int counter_semicolon(char *command)
     return counter;
 }
 
-int parse_command(char* command, char** argv){
+int parse_command(char* command, char*** argv){
     int arg_count = counter_semicolon(command) + 1;
     char *token = strtok(command, ";");
-    argv = (char**)malloc(sizeof(char*)*(arg_count));
+    *argv = (char**)malloc(sizeof(char*)*(arg_count));
     int i = 0;
 
      while (token != NULL)
@@ -114,9 +114,11 @@ void repeat (int start_command, char** job, int count_commands, int times)
     {
        for (int i = start_command + 1; i < count_commands; i++){
             char* command_token = strtok(job[i], " ");
+            if (command_token == NULL) continue;
             if (strcmp(command_token, "increment") == 0){
                 char* x = strtok(NULL, " ");
-                char file_name[12] = "counterxx.txt";
+                if (command_token == NULL) continue;
+                char file_name[13] = "counterxx.txt";
                 int counter_number = strtol(x, &end_ptr, 10);
                 if (*end_ptr != '\0') {
                 fprintf(stderr, "Error: strtol failed.1\n");
@@ -127,7 +129,7 @@ void repeat (int start_command, char** job, int count_commands, int times)
             }
             if (strcmp(command_token, "decrement") == 0){
                 char* x = strtok(NULL, " ");
-                char file_name[12] = "counterxx.txt";
+                char file_name[13] = "counterxx.txt";
                 int counter_number = strtol(x, &end_ptr, 10);
                 if (*end_ptr != '\0') {
                 fprintf(stderr, "Error: strtol failed.2\n");
@@ -150,17 +152,15 @@ void repeat (int start_command, char** job, int count_commands, int times)
     }
 }
 
-void counter_file_name(char* command_x, char* filename)
+void counter_file_name(char* command_x, char** filename)
 {
-    bool less_then_ten = false;
-    if (strlen(command_x) == 1) less_then_ten = true;
-    if (less_then_ten){
-        filename[5] = '0';
+    memset(filename, 0, 13); // initialize filename with zeros
+    strcpy(&filename, "counterxx.txt");
+    if (strlen(command_x) == 1) {
+        filename[7] = command_x[0];
+    } else {
         filename[6] = command_x[0];
-    }
-    else {
-        filename[5] = command_x[0];
-        filename[6] = command_x[1];
+        filename[7] = command_x[1];
     }
 }
 
@@ -210,6 +210,7 @@ void* worker_main(void *data)
             break;
         }
         pthread_mutex_unlock(&running_mutex);
+
         pthread_mutex_lock(&fifo_mutex);
         while (is_fifo_empty(fifo))
         {
@@ -227,7 +228,7 @@ void* worker_main(void *data)
         char **job = NULL;
         //Jobs starts here
         //calc start jobs time
-        int count_commands = parse_command(command,job);
+        int count_commands = parse_command(command,&job);
         time_t job_started_time;
         job_started_time = clock();
         long long job_start_elapsed_time = ((long long)(job_started_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
@@ -239,7 +240,7 @@ void* worker_main(void *data)
             char* command_token = strtok(job[i], " ");
             if (strcmp(command_token, "increment") == 0){
                 char* x = strtok(NULL, " ");
-                char file_name[12] = "counterxx.txt";
+                char file_name[13] = "counterxx.txt";
                 int counter_number = strtol(x, &end_ptr, 10);
                 if (*end_ptr != '\0') {
                 fprintf(stderr, "Error: strtol failed.4\n");
@@ -315,8 +316,11 @@ void* worker_main(void *data)
 
 int main(int argc, char* argv[])
 {
+    printf("DEBUG1"); //DEBUG
+
     //Mutexes initialization
     init_mutexes();
+    printf("DEBUG1"); //DEBUG
 
     //Start point of the timer
     time_t start_time;
@@ -357,7 +361,8 @@ int main(int argc, char* argv[])
                 exit(1);
                 }
 
-   
+    printf("DEBUG1"); //DEBUG
+
 
     //Create counters - creates num_counts of counters as txt file, each initialized to 0 inside
     char* counters_names [MAX_NUM_OF_COUNTERS];
@@ -384,6 +389,7 @@ int main(int argc, char* argv[])
     //Create threads log files
     FILE* worker_logs[MAX_NUM_OF_THREADS];
 
+    printf("DEBUG1"); //DEBUG
 
     for (int i = 0; i < num_threads; i++)
     {
@@ -410,10 +416,12 @@ int main(int argc, char* argv[])
     //Read the jobs from the cmdfile
     char job[MAX_LINE_WIDTH];
     while (fgets(job,MAX_LINE_WIDTH,cmd_file_fp)){
-
+    if (job == NULL) continue;
     //Separate between worker and dispathcer job
     char* token = strtok(job," ");
     assert (token); //Dispatcher or Worker
+
+    printf("DEBUG2"); //DEBUG
 
     //Dispatcher code
     if (!strcmp(token,"dispatcher"))
@@ -423,6 +431,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Error: missing command after 'dispatcher'.\n");
         exit(1);
         }
+        printf("DEBUG1"); //DEBUG
 
         if (!strcmp(token,"wait"))
         {   
@@ -441,14 +450,7 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Error: missing sleep time after 'sleep'.\n");
             exit(1);
             }
-
             sleep_time = (int) strtol(token,&end_ptr,10); //sleeptime in miliseconds
-            printf("sleep_time is %d \n",sleep_time);
-            printf("end ptr is %c \n",*end_ptr);
-            // if (*end_ptr != '\0' || *end_ptr ) {
-            // fprintf(stderr, "Error: strtol failed.11\n");
-            // exit(1);
-            // }
             usleep (1000*sleep_time);
         }
 
@@ -477,7 +479,7 @@ int main(int argc, char* argv[])
         fifo_push(&fifo,job+strlen(token)+1); // job pointer incremented by len of worker + space
         pthread_cond_signal(&wake_up_worker); // wake up any thread
         pthread_mutex_unlock(&fifo_mutex); // FIFO MUTEX UNLOCK
-
+        printf("work has been pushed to the FIFO"); //DEBUG
     } //End of worker code
     }
     ////////////////////////////////////////////////////
@@ -508,8 +510,9 @@ int main(int argc, char* argv[])
     destroy_mutexes();
     //Free counters names array
     for (int i = 0; i < num_counters; i++) {
+    if (counters_names[i] != NULL){
     free(counters_names[i]); 
-    counters_names[i] = NULL;
+    counters_names[i] = NULL;}
     }
     //Statistics
 
