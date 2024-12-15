@@ -1,7 +1,3 @@
-#include "hw2.h"
-
-
-
 
 
 bool is_fifo_empty(jobs_fifo* fifo){

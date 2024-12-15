@@ -1,6 +1,7 @@
+//INCLUDES
 #include <limits.h>
-
 #include "hw2.h"
+#include "jobs_fifo.c"
 
 //global time statistic veriables
 long long jobs_turnaround_time = 0;
@@ -13,14 +14,15 @@ int num_awake_workers = 0;
 //global numer of jobs statistic veriable
 int number_of_jobs = 0;
 
+//Global running flag
+int running_flag = 1;
+
 //MUTEXES
-int is_running = 1;
-pthread_mutex_t fifo_mutex = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t fifo_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t counter_mutex[MAX_NUM_OF_COUNTERS];
 pthread_mutex_t running_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t global_time_vars_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t num_awake_workers_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t wake_up_dispatcher_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //COND VAR
 pthread_cond_t wake_up_worker = PTHREAD_COND_INITIALIZER; // wake-up signal for each worker
@@ -107,6 +109,7 @@ void msleep (int mseconds)
 
 void repeat (int start_command, char** job, int count_commands, int times)
 {
+    char* end_ptr = NULL;
     for (int j=0;j<times;j++)
     {
        for (int i = start_command + 1; i < count_commands; i++){
@@ -114,21 +117,33 @@ void repeat (int start_command, char** job, int count_commands, int times)
             if (strcmp(command_token, "increment") == 0){
                 char* x = strtok(NULL, " ");
                 char file_name[12] = "counterxx.txt";
-                int counter_number = strtol(x, NULL, 10);
+                int counter_number = strtol(x, &end_ptr, 10);
+                if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.1\n");
+                exit(1);
+                }
                 counter_file_name(x, file_name);
                 update_counter_file(file_name, 1,counter_number);
             }
             if (strcmp(command_token, "decrement") == 0){
                 char* x = strtok(NULL, " ");
                 char file_name[12] = "counterxx.txt";
-                int counter_number = strtol(x, NULL, 10);
+                int counter_number = strtol(x, &end_ptr, 10);
+                if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.2\n");
+                exit(1);
+                }
                 counter_file_name(x, file_name);
                 update_counter_file(file_name, -1,counter_number);
             }
             if (strcmp(command_token, "msleep") == 0)
             {
                 char* x = strtok(NULL, " ");
-                int x_sleep = (int)strtol(x, NULL, 10);
+                int x_sleep = (int)strtol(x, &end_ptr, 10);
+                if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.3\n");
+                exit(1);
+                }
                 usleep(x_sleep*1000);
             }
         }
@@ -149,6 +164,22 @@ void counter_file_name(char* command_x, char* filename)
     }
 }
 
+// Initialize the mutex array for counters files
+void init_mutexes() {
+    for (int i = 0; i < MAX_NUM_OF_COUNTERS; i++) {
+        if (pthread_mutex_init(&counter_mutex[i], NULL) != 0) {
+            perror("Failed to initialize counter mutex");
+            exit(1);
+        }
+    }
+}
+
+// Destroy the mutex array for counters files
+void destroy_mutexes() {
+    for (int i = 0; i < MAX_NUM_OF_COUNTERS; i++) {
+        pthread_mutex_destroy(&counter_mutex[i]);
+    }
+}
 
 void* worker_main(void *data)
 {
@@ -157,6 +188,7 @@ void* worker_main(void *data)
     jobs_fifo* fifo = wdata->fifo;
     int whoami = wdata->thread_number;
     time_t* start_known_to_w = wdata->start_time_ptr;
+    char* end_ptr = NULL; // string for strtol usage
     //init log file
 
     while (1)
@@ -172,7 +204,7 @@ void* worker_main(void *data)
         }
 
         pthread_mutex_lock(&running_mutex);
-        if (!is_running)
+        if (!running_flag)
         {
             pthread_mutex_unlock(&running_mutex);
             break;
@@ -202,36 +234,49 @@ void* worker_main(void *data)
         fprintf(thread_log_file, "TIME %lld: START job %s\n", job_start_elapsed_time, command);
 
         // Job exec
-        char* end_ptr = NULL; // strtol usage
+        
         for (int i = 0; i < count_commands; i++){
             char* command_token = strtok(job[i], " ");
             if (strcmp(command_token, "increment") == 0){
                 char* x = strtok(NULL, " ");
                 char file_name[12] = "counterxx.txt";
-                int counter_number = strtol(x, end_ptr, 10);
-                assert ((*end_ptr != '\0'));
+                int counter_number = strtol(x, &end_ptr, 10);
+                if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.4\n");
+                exit(1);
+                }
                 counter_file_name(x, file_name);
                 update_counter_file(file_name, 1,counter_number);
             }
             if (strcmp(command_token, "decrement") == 0){
                 char* x = strtok(NULL, " ");
-                char file_name[12] = "counterxx.txt";
-                int counter_number = strtol(x, NULL, 10);
+                char file_name[13] = "counterxx.txt";
+                int counter_number = strtol(x, &end_ptr, 10);
+                if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.5\n");
+                exit(1);
+                }
                 counter_file_name(x, file_name);
                 update_counter_file(file_name, -1,counter_number);
             }
             if (strcmp(command_token, "msleep") == 0)
             {
                 char* x = strtok(NULL, " ");
-                int x_sleep = (int)strtol(x, end_ptr, 10);
-                assert ((*end_ptr != '\0'));
+                int x_sleep = (int)strtol(x, &end_ptr, 10);
+                if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.6\n");
+                exit(1);
+                }
                 usleep(x_sleep*1000);
             }
             if (strcmp(command_token, "repeat") == 0)
             {
                 char* x = strtok(NULL, " ");
-                int x_repeat = (int)strtol(x,end_ptr, 10);
-                assert ((*end_ptr != '\0'));
+                int x_repeat = (int)strtol(x,&end_ptr, 10);
+                if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.7\n");
+                exit(1);
+                }
 
                 repeat(i, job, count_commands, x_repeat);
                 break;
@@ -270,6 +315,9 @@ void* worker_main(void *data)
 
 int main(int argc, char* argv[])
 {
+    //Mutexes initialization
+    init_mutexes();
+
     //Start point of the timer
     time_t start_time;
     start_time = clock();
@@ -280,28 +328,52 @@ int main(int argc, char* argv[])
     bool empty = false;
     worker_data thread_data[MAX_NUM_OF_THREADS];
     int sleep_time =0;
-    char* end_ptr = NULL;
+    char* end_ptr = NULL; //string for strtol usage
     //Analyze the command line arguments
-    assert((argc != NUM_OF_CMD_LINE_ARGS));
+    if (argc != 5) {
+                fprintf(stderr, "Error: wrong number of arguments.\n");
+                exit(1);
+                }
 
-    int num_counters = (int) strtol(argv[3],'\0',10);
-    int num_threads = (int) strtol(argv[2],'\0',10);
+    int num_counters = (int) strtol(argv[3],&end_ptr,10);
+    if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.8\n");
+                exit(1);
+                }
+    int num_threads = (int) strtol(argv[2],&end_ptr,10);
+    if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.9\n");
+                exit(1);
+                }
+    int log_enabled = (int) strtol(argv[4],&end_ptr,10);
+    if (*end_ptr != '\0') {
+                fprintf(stderr, "Error: strtol failed.10\n");
+                exit(1);
+                }
+
     FILE* cmd_file_fp = fopen(argv[1],"r");
-    assert (cmd_file_fp);
-    int log_enabled = (int) strtol(argv[4],'\0',10);
+    if (cmd_file_fp == NULL) {
+                fprintf(stderr, "Error: Cmd file opening fail.\n");
+                exit(1);
+                }
+
+   
 
     //Create counters - creates num_counts of counters as txt file, each initialized to 0 inside
     char* counters_names [MAX_NUM_OF_COUNTERS];
-    for (int i = 0; i < num_counters; i++)
-    {
-        sprintf(counters_names,"counter%2d.txt",i);
+    for (int i = 0; i < num_counters; i++) {
+    counters_names[i] = (char*) malloc(10 * sizeof(char)); // allocate 10 chars for each counter name - "counterXX\0"
+    sprintf(counters_names[i], "counter%02d.txt", i); 
     }
 
     FILE* counters_fp [MAX_NUM_OF_COUNTERS];
     for (int i = 0; i < num_counters; i++)
     {
         counters_fp[i] = fopen(counters_names[i],"w");
-        assert (counters_fp[i]);
+        if (counters_fp [i] == NULL) {
+            printf("Failed to open a counter%02d file\n",i);
+            exit(1);
+        }
         fprintf(counters_fp[i],"%d",0); //FIXME - check it
         pthread_mutex_init(&counter_mutex[i],NULL); //FIXME check it
         fclose(counters_fp[i]);
@@ -357,10 +429,7 @@ int main(int argc, char* argv[])
             pthread_mutex_lock(&num_awake_workers_mutex); // FIFO MUTEX LOCK
             while (num_awake_workers>0)
             {
-                pthread_mutex_unlock(&num_awake_workers_mutex); // FIFO MUTEX UNLOCK
-                pthread_mutex_lock(&wake_up_dispatcher_mutex); // FIFO MUTEX LOCK
-                pthread_cond_wait(&wake_up_dispatcher,&wake_up_dispatcher_mutex);
-                pthread_mutex_lock(&num_awake_workers_mutex); // FIFO MUTEX LOCK
+                pthread_cond_wait(&wake_up_dispatcher,&num_awake_workers_mutex);
             }
             pthread_mutex_unlock(&num_awake_workers_mutex); // FIFO MUTEX UNLOCK
         }
@@ -373,11 +442,13 @@ int main(int argc, char* argv[])
             exit(1);
             }
 
-            sleep_time = (int) strtol(token,end_ptr,10); //sleeptime in miliseconds
-            if (*end_ptr != '\0') {
-            fprintf(stderr, "Error: strtol failed.\n");
-            exit(1);
-            }
+            sleep_time = (int) strtol(token,&end_ptr,10); //sleeptime in miliseconds
+            printf("sleep_time is %d \n",sleep_time);
+            printf("end ptr is %c \n",*end_ptr);
+            // if (*end_ptr != '\0' || *end_ptr ) {
+            // fprintf(stderr, "Error: strtol failed.11\n");
+            // exit(1);
+            // }
             usleep (1000*sleep_time);
         }
 
@@ -430,11 +501,22 @@ int main(int argc, char* argv[])
     //Wait for all workers to finish
     for (int i = 0; i < num_threads; i++)
         {
-            ptherad_join(workers[i]);
+            pthread_join(workers[i],NULL);
         }
 
+    //Destroy dynamic initiated mutexes
+    destroy_mutexes();
+    //Free counters names array
+    for (int i = 0; i < num_counters; i++) {
+    free(counters_names[i]); 
+    counters_names[i] = NULL;
+    }
     //Statistics
 
     //Logs
 
+
     }
+
+
+
