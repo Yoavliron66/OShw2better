@@ -14,6 +14,7 @@
 #define NUM_OF_CMD_LINE_ARGS 5
 #define MAX_LINE_WIDTH 1024
 #define NUM_OF_OUTSTANDING 4096
+#define MAX_NUM_OF_JOBS 100
 
 
 typedef struct JOBSFIFO
@@ -40,4 +41,4 @@ void fifo_push(jobs_fifo* fifo, char* inserted_job);
 char* fifo_pop(jobs_fifo* fifo);
 void free_fifo(jobs_fifo* fifo);
 void init_fifo(jobs_fifo* fifo);
-void counter_file_name(char* command_x, char** filename);
+void counter_file_name(char* command_x, char filename[13]);
