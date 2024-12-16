@@ -129,6 +129,7 @@ void free_parsed_command(char* job[MAX_NUM_OF_JOBS], int arg_count) {
 }
 
 //Worker increment/decrement x which delta is for -1 or +1
+//FIXME - PLS ADD COMMENTS
 void update_counter_file(char *filename, int delta, int counter_number)
 {
     FILE* fd;
@@ -149,17 +150,19 @@ void update_counter_file(char *filename, int delta, int counter_number)
         return;
     }
     fclose(fd);
-    pthread_mutex_unlock(&counter_mutex[counter_number]);
-    int val_to_prinnt = val + delta;
-    pthread_mutex_lock(&counter_mutex[counter_number]);
+
+    int val_to_print = val + delta; 
+    printf("counter number is %d, the valtp is %d\n",counter_number, val_to_print); //DEBUG
     fd = fopen(filename, "w");
+
     if (fd == NULL)
     {
         perror("Error opening file for writing");
         pthread_mutex_unlock(&counter_mutex[counter_number]);
         return;
     }
-    fprintf(fd, "%d",val+val_to_prinnt);
+
+    fprintf(fd, "%d",val_to_print);
     fclose(fd);
     pthread_mutex_unlock(&counter_mutex[counter_number]);
 }
@@ -216,13 +219,14 @@ void repeat (int start_command, char** job, int count_commands, int times)
 
 void counter_file_name(char* command_x, char filename[13])
 {
-    memset(filename, 0, 13); // initialize filename with zeros
+    //FIXME - pls add comments
     strcpy(filename, "counterxx.txt");
     if (strlen(command_x) == 1) {
-        filename[7] = command_x[0];
+        filename[8] = command_x[0];
+        filename[7] = 48;
     } else {
-        filename[6] = command_x[0];
-        filename[7] = command_x[1];
+        filename[7] = command_x[0];
+        filename[8] = command_x[1];
     }
 }
 
@@ -278,10 +282,20 @@ void* worker_main(void *data)
         while (is_fifo_empty(fifo))
         {
             pthread_cond_wait(&wake_up_worker,&fifo_mutex);
+            pthread_mutex_lock(&running_mutex); //MUTEX LOCK
+            if (running_flag==0) //terminating when fifo empty and the main loop is finished
+            {
+                pthread_mutex_unlock(&running_mutex);//MUTEX UNLOCK
+                pthread_exit(NULL);
+            }
+            pthread_mutex_unlock(&running_mutex); //MUTEX UNLOCK
+
         }
-        printf("wr ptr = %d, rd_ptr = %d, size = %d\n", fifo->wr_ptr, fifo->rd_ptr, fifo->size);
+
+       
+        printf("wr ptr = %d, rd_ptr = %d, size = %d\n", fifo->wr_ptr, fifo->rd_ptr, fifo->size); //DEBUG
         char* command = fifo_pop(fifo);
-        printf("Work has been popped by worker: %s\n", command);
+        printf("Work has been popped by worker: %s\n", command); //DEBUG
         pthread_mutex_unlock(&fifo_mutex);
 
         //Handle awake workers counter - increment
@@ -345,6 +359,7 @@ void* worker_main(void *data)
                 break;
             }
         }
+
         time_t job_ended_time = clock();
         long long job_end_elapsed_time = ((long long)(job_ended_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
         fprintf(thread_log_file, "TIME %lld: END job %s\n", job_end_elapsed_time, command);
@@ -370,7 +385,18 @@ void* worker_main(void *data)
         num_awake_workers --;
         if (num_awake_workers == 0) pthread_cond_broadcast(&wake_up_dispatcher); //wake up dispatcher if the last worker done his job
         pthread_mutex_unlock(&num_awake_workers_mutex);
-    }
+
+        //terminating
+        pthread_mutex_lock(&running_mutex); //MUTEX LOCK
+        if (running_flag==0) //terminating when fifo empty and the main loop is finished
+            {
+            pthread_mutex_unlock(&running_mutex);//MUTEX UNLOCK
+            pthread_exit(NULL);
+            }
+        pthread_mutex_unlock(&running_mutex); //MUTEX UNLOCK
+
+    } // end of while(1)
+
     return 0;
 
 }
@@ -379,11 +405,9 @@ void* worker_main(void *data)
 
 int main(int argc, char* argv[])
 {
-    printf("DEBUG1\n"); //DEBUG
 
     //Mutexes initialization
     init_mutexes();
-    printf("DEBUG1\n"); //DEBUG
 
     //Start point of the timer
     time_t start_time;
@@ -426,8 +450,6 @@ int main(int argc, char* argv[])
                 exit(1);
                 }
 
-    printf("DEBUG1\n"); //DEBUG
-
 
     //Create counters - creates num_counts of counters as txt file, each initialized to 0 inside
     char* counters_names [MAX_NUM_OF_COUNTERS];
@@ -454,8 +476,6 @@ int main(int argc, char* argv[])
     //Create threads log files
     FILE* worker_logs[MAX_NUM_OF_THREADS];
 
-    printf("DEBUG1\n"); //DEBUG
-
     for (int i = 0; i < num_threads; i++)
     {
         char worker_log_file_name[20]; // FIXME - check it - char* or char
@@ -481,25 +501,29 @@ int main(int argc, char* argv[])
     //Read the jobs from the cmdfile
     char job[MAX_LINE_WIDTH];
     while (fgets(job,MAX_LINE_WIDTH,cmd_file_fp)){
-        printf("%s\n", job);
+        char* new_line = strchr(job,'\n');
+        if (new_line)
+        {
+            *new_line = '\0';
+        }
+        
         if (strcmp(job, "\n") == 0) continue; //empty line = "\n"
-        int job_len = strlen(job);
-        job[job_len - 1] = '\0';
-        //Separate between worker and dispathcer job
-        char* token = strtok(job," ");
-        assert (token); //Dispatcher or Worker
 
-        printf("DEBUG2\n"); //DEBUG
+        //Separate between worker and dispathcer job
+        char* token = strtok(job," "); // FIXME - check with Gadi, IGOR
+        if (token == NULL) {
+                fprintf(stderr, "Error:strtok failed.\n");
+                exit(1);
+                }
 
         //Dispatcher code
         if (strcmp(token,"dispatcher") == 0)
         {
-            token = strtok(NULL," ");
+            token = strtok(NULL," "); 
             if (token == NULL) {
             fprintf(stderr, "Error: missing command after 'dispatcher'.\n");
             exit(1);
             }
-            printf("DEBUG1"); //DEBUG
 
             if (strcmp(token,"wait") == 0)
             {
@@ -513,7 +537,7 @@ int main(int argc, char* argv[])
 
             if (strcmp(token,"sleep") == 0)
             {
-                token = strtok(NULL," ");// fetch the X var - time for sleep
+                token = strtok(NULL,"\n");// fetch the X var - time for sleep
                 if (token == NULL) {
                 fprintf(stderr, "Error: missing sleep time after 'sleep'.\n");
                 exit(1);
@@ -523,7 +547,6 @@ int main(int argc, char* argv[])
             }
 
         }//End of dispatcher code
-
         //Woker code
         if (strcmp(token,"worker") == 0)
         {
@@ -538,16 +561,16 @@ int main(int argc, char* argv[])
                     break;
                 }
                 full = true;
-                pthread_cond_signal(&wake_up_worker); // wake up any thread
+                pthread_cond_broadcast(&wake_up_worker); // wake up any thread
                 pthread_mutex_unlock(&fifo_mutex); // FIFO MUTEX UNLOCK
             }
 
             //push job to the FIFO
             pthread_mutex_lock(&fifo_mutex); // FIFO MUTEX LOCK
-            fifo_push(&fifo,job+strlen(token)+1); // job pointer incremented by len of worker + space
+            fifo_push(&fifo,job+strlen(token)+1); // job pointer incremented by len of worker + space 
             pthread_mutex_unlock(&fifo_mutex); // FIFO MUTEX UNLOCK
-            pthread_cond_signal(&wake_up_worker); // wake up any thread
-            printf("work has been pushed to the FIFO %s", job+strlen(token)+1); //DEBUG
+            pthread_cond_broadcast(&wake_up_worker); // wake up any thread
+            printf("work has been pushed to the FIFO %s\n", job+strlen(token)+1); //DEBUG
         } //End of worker code
     }
     ////////////////////////////////////////////////////
@@ -564,14 +587,24 @@ int main(int argc, char* argv[])
                 pthread_mutex_unlock(&fifo_mutex); // FIFO MUTEX UNLOCK
                 break;
             }
-        pthread_cond_signal(&wake_up_worker); // wake up any thread
+        pthread_cond_broadcast(&wake_up_worker); // wake up any thread
         pthread_mutex_unlock(&fifo_mutex); // FIFO MUTEX UNLOCK
     }
+
+    //termination of worker loop
+    pthread_mutex_lock(&running_mutex); //MUTEX LOCK
+    running_flag = 0;
+    pthread_mutex_unlock(&running_mutex); //MUTEX UNLOCK
+
+    pthread_cond_broadcast(&wake_up_worker);
 
     //Wait for all workers to finish
     for (int i = 0; i < num_threads; i++)
         {
+            printf("try to join %d worker\n",i); //DEBUG
             pthread_join(workers[i],NULL);
+            printf("thread %d sucsessfully joined \n",i); //DEBUG
+
         }
 
     //Destroy dynamic initiated mutexes
@@ -581,12 +614,15 @@ int main(int argc, char* argv[])
     if (counters_names[i] != NULL){
     free(counters_names[i]); 
     counters_names[i] = NULL;}
+
     }
+
+
     //Statistics
 
     //Logs
 
-
+    return 0;
     }
 
 
