@@ -41,4 +41,5 @@ void fifo_push(jobs_fifo* fifo, char* inserted_job);
 char* fifo_pop(jobs_fifo* fifo);
 void free_fifo(jobs_fifo* fifo);
 void init_fifo(jobs_fifo* fifo);
+void free_fifo(jobs_fifo* fifo);
 void counter_file_name(char* command_x, char filename[13]);

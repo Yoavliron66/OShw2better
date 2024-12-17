@@ -1,8 +1,8 @@
 worker increment 1
 worker increment 1
-worker increment 1
 worker increment 2
 worker increment 3
 worker increment 0
 worker increment 0
-worker decrement 1
+worker increment 0
+worker decrement 0

@@ -42,18 +42,24 @@ bool is_fifo_full(jobs_fifo* fifo){
 }
 
 void fifo_push(jobs_fifo* fifo, char* inserted_job){
+    //FIFO is full case
     if (is_fifo_full(fifo)){
         printf("Tried to push to a full FIFO, push aborted, job lost");
         return;
     }
-    fifo->jobs[fifo->wr_ptr] = inserted_job;
+
+    //FIFO is not full case
+    strcpy(fifo->jobs[fifo->wr_ptr],inserted_job);
+    printf("Inserted job is: %s\n",inserted_job);
+    //wrap around
     if (fifo->wr_ptr == NUM_OF_OUTSTANDING - 1){
         fifo->wr_ptr = 0;
     }
     else {
-        fifo->wr_ptr += 1;
+        fifo->wr_ptr ++;
     }
-    fifo->size += 1;
+
+    fifo->size ++;
 }
 
 char* fifo_pop(jobs_fifo* fifo){
@@ -64,13 +70,16 @@ char* fifo_pop(jobs_fifo* fifo){
         return res;
     }
     res = fifo->jobs[fifo->rd_ptr];
+    
+    //wrap -around
     if (fifo->rd_ptr == NUM_OF_OUTSTANDING - 1){
         fifo->rd_ptr = 0;
     }
     else {
-        fifo->rd_ptr += 1;
+        fifo->rd_ptr ++;
     }
-    fifo->size -= 1;
+    fifo->size --;
+    printf("the FIFO output is: %s\n",res); //DEBUG
     return res;
 }
 
@@ -87,13 +96,18 @@ char* fifo_pop(jobs_fifo* fifo){
 
 void init_fifo(jobs_fifo* fifo){
     for (int i = 0; i < NUM_OF_OUTSTANDING; i++){
-        fifo->jobs[i] = NULL;
+        fifo->jobs[i] = malloc(1024*sizeof(char*)); //mem alloc to each job, note that max_line_width = 1024
     }
     fifo->size = 0;
     fifo->rd_ptr = 0;
     fifo->wr_ptr = 0;
 }
 
+void free_fifo(jobs_fifo* fifo){
+    for (int i = 0; i < NUM_OF_OUTSTANDING; i++){
+        free(fifo->jobs[i]) ;
+    }
+}
 
 int counter_semicolon(char *command)
 {
@@ -282,6 +296,7 @@ void* worker_main(void *data)
         while (is_fifo_empty(fifo))
         {
             pthread_cond_wait(&wake_up_worker,&fifo_mutex);
+
             pthread_mutex_lock(&running_mutex); //MUTEX LOCK
             if (running_flag==0) //terminating when fifo empty and the main loop is finished
             {
@@ -289,11 +304,12 @@ void* worker_main(void *data)
                 pthread_exit(NULL);
             }
             pthread_mutex_unlock(&running_mutex); //MUTEX UNLOCK
-
         }
 
-       
-        printf("wr ptr = %d, rd_ptr = %d, size = %d\n", fifo->wr_ptr, fifo->rd_ptr, fifo->size); //DEBUG
+        pthread_mutex_unlock(&fifo_mutex);
+
+        pthread_mutex_lock(&fifo_mutex); //MUTEX LOCK
+        printf("FIFO DEBUG: wr ptr = %d, rd_ptr = %d, fifo_size = %d\n", fifo->wr_ptr, fifo->rd_ptr, fifo->size); //DEBUG
         char* command = fifo_pop(fifo);
         printf("Work has been popped by worker: %s\n", command); //DEBUG
         pthread_mutex_unlock(&fifo_mutex);
@@ -312,6 +328,7 @@ void* worker_main(void *data)
         job_started_time = clock();
         long long job_start_elapsed_time = ((long long)(job_started_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
         fprintf(thread_log_file, "TIME %lld: START job %s\n", job_start_elapsed_time, command);
+
         // Job exec
         for (int i = 0; i < count_commands; i++){
             char* command_token = strtok(job[i], " ");
@@ -502,6 +519,7 @@ int main(int argc, char* argv[])
     char job[MAX_LINE_WIDTH];
     while (fgets(job,MAX_LINE_WIDTH,cmd_file_fp)){
         char* new_line = strchr(job,'\n');
+
         if (new_line)
         {
             *new_line = '\0';
@@ -547,6 +565,7 @@ int main(int argc, char* argv[])
             }
 
         }//End of dispatcher code
+
         //Woker code
         if (strcmp(token,"worker") == 0)
         {
@@ -568,9 +587,8 @@ int main(int argc, char* argv[])
             //push job to the FIFO
             pthread_mutex_lock(&fifo_mutex); // FIFO MUTEX LOCK
             fifo_push(&fifo,job+strlen(token)+1); // job pointer incremented by len of worker + space 
+            pthread_cond_signal(&wake_up_worker); // wake up call for all threads
             pthread_mutex_unlock(&fifo_mutex); // FIFO MUTEX UNLOCK
-            pthread_cond_broadcast(&wake_up_worker); // wake up any thread
-            printf("work has been pushed to the FIFO %s\n", job+strlen(token)+1); //DEBUG
         } //End of worker code
     }
     ////////////////////////////////////////////////////
@@ -609,6 +627,7 @@ int main(int argc, char* argv[])
 
     //Destroy dynamic initiated mutexes
     destroy_mutexes();
+    
     //Free counters names array
     for (int i = 0; i < num_counters; i++) {
     if (counters_names[i] != NULL){
@@ -617,6 +636,8 @@ int main(int argc, char* argv[])
 
     }
 
+    //Free FIFO
+    free_fifo(&fifo);
 
     //Statistics
 
