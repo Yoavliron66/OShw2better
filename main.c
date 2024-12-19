@@ -15,6 +15,7 @@ int number_of_jobs = 0;
 
 //Global running flag
 int running_flag = 1;
+int num_of_waiting_threads = 0; // under fifo cond and mutex
 
 //MUTEXES
 pthread_mutex_t fifo_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -50,7 +51,6 @@ void fifo_push(jobs_fifo* fifo, char* inserted_job){
 
     //FIFO is not full case
     strcpy(fifo->jobs[fifo->wr_ptr],inserted_job);
-    printf("Inserted job is: %s\n",inserted_job);
     //wrap around
     if (fifo->wr_ptr == NUM_OF_OUTSTANDING - 1){
         fifo->wr_ptr = 0;
@@ -79,7 +79,6 @@ char* fifo_pop(jobs_fifo* fifo){
         fifo->rd_ptr ++;
     }
     fifo->size --;
-    printf("the FIFO output is: %s\n",res); //DEBUG
     return res;
 }
 
@@ -109,29 +108,69 @@ void free_fifo(jobs_fifo* fifo){
     }
 }
 
-int counter_semicolon(char *command)
+int counter_semicolon(char *command) //FIXME - segmentation error
 {
     int counter = 0;
-    for (char *c = command; *c != '\0'; c++)
-    {
-        if (*c == ';') counter++;
+    char* ptr = command;
+    int i = 0;
+    while (ptr[i] != '\0') {
+        if (ptr[i] == ';') counter++;
+        i++;
     }
     return counter;
 }
 
-int parse_command(char* command, char* job[MAX_NUM_OF_JOBS]){
-    int arg_count = counter_semicolon(command) + 1;
-    char *token = strtok(command, ";");
-    //FIX ME - REMOVE
-    //*argv = (char**)malloc(sizeof(char*)*(arg_count));
-    int i = 0;
-    while (token != NULL)
-    {
-        job[i] = (char*)malloc(strlen(token) + 1);
-        strcpy(job[i], token);
-        i++;
+// int parse_command(char* command, char* job[MAX_NUM_OF_JOBS]){
+//     int arg_count = counter_semicolon(command) + 1;
+//     char *token = strtok(command, ";");
+//     int i = 0;
+//     while (token != NULL)
+//     {
+//         job[i] = (char*)malloc((strlen(token) + 1)*sizeof(char));
+//         //printf("token is :%s, counter is :%d \n",token, arg_count);
+//         strcpy(job[i], token);
+//         i++;
+//         token = strtok(NULL, ";");
+//     }
+//     return arg_count;
+// }
+int parse_command(const char *command, char* job[MAX_NUM_OF_JOBS]) {
+    char *command_copy = (char*)malloc((strlen(command) + 1) * sizeof(char));
+    if (command_copy == NULL) {
+        fprintf(stderr, "Error: Memory allocation failed for command copy.\n");
+        exit(1);
+    }
+    strcpy(command_copy, command);
+
+    int arg_count = 0;
+    char *token = strtok(command_copy, ";");
+    
+    while (token != NULL) {
+        if (arg_count >= MAX_NUM_OF_JOBS) {
+            fprintf(stderr, "Error: Exceeded maximum number of jobs (%d).\n", MAX_NUM_OF_JOBS);
+            free(command_copy);
+            for (int j = 0; j < arg_count; j++) {
+                free(job[j]); 
+            }
+            exit(1);
+        }
+        
+        job[arg_count] = (char*)malloc((strlen(token) + 1) * sizeof(char));
+        if (job[arg_count] == NULL) {
+            fprintf(stderr, "Error: Memory allocation failed for job %d.\n", arg_count);
+            free(command_copy);
+            for (int j = 0; j < arg_count; j++) {
+                free(job[j]);
+            }
+            exit(1);
+        }
+
+        strcpy(job[arg_count], token);
+        arg_count++;
         token = strtok(NULL, ";");
     }
+
+    free(command_copy);
     return arg_count;
 }
 
@@ -166,7 +205,6 @@ void update_counter_file(char *filename, int delta, int counter_number)
     fclose(fd);
 
     int val_to_print = val + delta; 
-    printf("counter number is %d, the valtp is %d\n",counter_number, val_to_print); //DEBUG
     fd = fopen(filename, "w");
 
     if (fd == NULL)
@@ -198,11 +236,11 @@ void repeat (int start_command, char** job, int count_commands, int times)
             if (strcmp(command_token, "increment") == 0){
                 char* x = strtok(NULL, " ");
                 char file_name[13];
-                int counter_number = strtol(x, &end_ptr, 10);
-                if (*end_ptr != '\0') {
-                    fprintf(stderr, "Error: strtol failed.4, Job lost\n");
-                    exit(1);
-                }
+                int counter_number = strtol(x, &end_ptr, 10); //FIXME - seg fault
+                // if (*end_ptr != '\0') {
+                //     fprintf(stderr, "Error: strtol failed.4, Job lost\n");
+                //     exit(1);
+                // }
                 counter_file_name(x, file_name);
                 update_counter_file(file_name, 1,counter_number);
             }
@@ -211,7 +249,7 @@ void repeat (int start_command, char** job, int count_commands, int times)
                 char file_name[13];
                 int counter_number = strtol(x, &end_ptr, 10);
                 if (*end_ptr != '\0') {
-                    fprintf(stderr, "Error: strtol failed.4, Job lost\n");
+                    fprintf(stderr, "Error: strtol failed.\n");
                     exit(1);
                 }
                 counter_file_name(x, file_name);
@@ -222,7 +260,7 @@ void repeat (int start_command, char** job, int count_commands, int times)
                 char* x = strtok(NULL, " ");
                 int x_sleep = strtol(x, &end_ptr, 10);
                 if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed.3\n");
+                fprintf(stderr, "Error: strtol failed\n");
                 exit(1);
                 }
                 usleep(x_sleep*1000);
@@ -273,7 +311,10 @@ void* worker_main(void *data)
 
     while (1)
     {
-        printf("Worker active\n");
+        if (!running_flag) {
+        break;
+        }
+
         // Open the worker log file
         char worker_log_file_name[20];
         sprintf(worker_log_file_name, "thread%04d.txt", whoami); // Zero-padded to 4 digits
@@ -284,34 +325,22 @@ void* worker_main(void *data)
             exit(1);
         }
 
-        pthread_mutex_lock(&running_mutex);
-        if (!running_flag)
-        {
-            pthread_mutex_unlock(&running_mutex);
-            break;
-        }
-        pthread_mutex_unlock(&running_mutex);
-
+        //Check if FIFO is empty
         pthread_mutex_lock(&fifo_mutex);
         while (is_fifo_empty(fifo))
         {
-            pthread_cond_wait(&wake_up_worker,&fifo_mutex);
-
-            pthread_mutex_lock(&running_mutex); //MUTEX LOCK
-            if (running_flag==0) //terminating when fifo empty and the main loop is finished
-            {
-                pthread_mutex_unlock(&running_mutex);//MUTEX UNLOCK
+    
+            if (!running_flag) {
+                pthread_mutex_unlock(&fifo_mutex);
                 pthread_exit(NULL);
             }
-            pthread_mutex_unlock(&running_mutex); //MUTEX UNLOCK
+            pthread_cond_wait(&wake_up_worker,&fifo_mutex);// Wait for wake-up call from dispatcher
         }
-
         pthread_mutex_unlock(&fifo_mutex);
 
+        // Try to pop job from FIFO
         pthread_mutex_lock(&fifo_mutex); //MUTEX LOCK
-        printf("FIFO DEBUG: wr ptr = %d, rd_ptr = %d, fifo_size = %d\n", fifo->wr_ptr, fifo->rd_ptr, fifo->size); //DEBUG
         char* command = fifo_pop(fifo);
-        printf("Work has been popped by worker: %s\n", command); //DEBUG
         pthread_mutex_unlock(&fifo_mutex);
 
         //Handle awake workers counter - increment
@@ -319,27 +348,36 @@ void* worker_main(void *data)
         num_awake_workers ++;
         pthread_mutex_unlock(&num_awake_workers_mutex);
 
-
         char *job[MAX_NUM_OF_JOBS];
         //Jobs starts here
         //calc start jobs time
         int count_commands = parse_command(command,job);
+        printf("the command is: ");
+        for (int i = 0; i < count_commands; i++) //DEBUG
+        {
+            
+            printf(" %s ",job[i]);
+
+        }
+        printf("\n");
+
         time_t job_started_time;
         job_started_time = clock();
         long long job_start_elapsed_time = ((long long)(job_started_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
         fprintf(thread_log_file, "TIME %lld: START job %s\n", job_start_elapsed_time, command);
 
-        // Job exec
+        // Job execution - parse command and execute it
         for (int i = 0; i < count_commands; i++){
-            char* command_token = strtok(job[i], " ");
+            char* job_copy = job[i];
+            char* command_token = strtok(job_copy, " "); //separate between basic command parameters
             if (strcmp(command_token, "increment") == 0){
-                char* x = strtok(NULL, " ");
+                char* x = strtok(NULL, " "); //FIXME
                 char file_name[13];
-                int counter_number = strtol(x, &end_ptr, 10);
-                if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed.4, Job lost\n");
-                exit(1);
-                }
+                int counter_number = (int) strtol(x, &end_ptr, 10);
+                // if (*end_ptr != '\0') {
+                // fprintf(stderr, "Error: strtol failed.4, Job lost\n");
+                // exit(1);
+                // }
                 counter_file_name(x, file_name);
                 update_counter_file(file_name, 1,counter_number);
             }
@@ -347,10 +385,10 @@ void* worker_main(void *data)
                 char* x = strtok(NULL, " ");
                 char file_name[13];
                 int counter_number = strtol(x, &end_ptr, 10);
-                if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed.5\n");
-                exit(1);
-                }
+                // if (*end_ptr != '\0') {
+                // fprintf(stderr, "Error: strtol failed.5\n");
+                // exit(1);
+                // }
                 counter_file_name(x, file_name);
                 update_counter_file(file_name, -1,counter_number);
             }
@@ -358,30 +396,32 @@ void* worker_main(void *data)
             {
                 char* x = strtok(NULL, " ");
                 int x_sleep = (int)strtol(x, &end_ptr, 10);
-                if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed.6\n");
-                exit(1);
-                }
+                // if (*end_ptr != '\0') {
+                // fprintf(stderr, "Error: strtol failed.6\n");
+                // exit(1);
+                // }
                 usleep(x_sleep*1000);
             }
             if (strcmp(command_token, "repeat") == 0)
             {
                 char* x = strtok(NULL, " ");
                 int x_repeat = (int)strtol(x,&end_ptr, 10);
-                if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed.7\n");
-                exit(1);
-                }
+                // if (*end_ptr != '\0') {
+                // fprintf(stderr, "Error: strtol failed.7\n");
+                // exit(1);
+                // }
                 repeat(i, job, count_commands, x_repeat);
                 break;
             }
         }
 
+        //Trace handling
         time_t job_ended_time = clock();
         long long job_end_elapsed_time = ((long long)(job_ended_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
         fprintf(thread_log_file, "TIME %lld: END job %s\n", job_end_elapsed_time, command);
         free_parsed_command(job,count_commands);
-        //statistics area
+
+        //Log and statistics handling
         pthread_mutex_lock(&global_time_vars_mutex);
         long long delta_worktime = ((long long)(job_ended_time - job_start_elapsed_time) *1000) / CLOCKS_PER_SEC;
         jobs_turnaround_time += delta_worktime;
@@ -394,26 +434,19 @@ void* worker_main(void *data)
         fclose(thread_log_file);
         number_of_jobs++;
         pthread_mutex_unlock(&global_time_vars_mutex);
+
         // FIX ME - IF dispatcher wake some threads or all threads after pushing to FIFO the next line is not needed
         //pthread_cond_broadcast(&wake_up_worker);
 
         //Handle awake workers counter - decrement + wake-up call to dispatcher
         pthread_mutex_lock(&num_awake_workers_mutex);
         num_awake_workers --;
-        if (num_awake_workers == 0) pthread_cond_broadcast(&wake_up_dispatcher); //wake up dispatcher if the last worker done his job
+        if (num_awake_workers == 0) pthread_cond_signal(&wake_up_dispatcher); //wake up dispatcher if the last worker done his job
         pthread_mutex_unlock(&num_awake_workers_mutex);
-
-        //terminating
-        pthread_mutex_lock(&running_mutex); //MUTEX LOCK
-        if (running_flag==0) //terminating when fifo empty and the main loop is finished
-            {
-            pthread_mutex_unlock(&running_mutex);//MUTEX UNLOCK
-            pthread_exit(NULL);
-            }
-        pthread_mutex_unlock(&running_mutex); //MUTEX UNLOCK
 
     } // end of while(1)
 
+    pthread_exit(NULL);
     return 0;
 
 }
@@ -447,17 +480,17 @@ int main(int argc, char* argv[])
 
     int num_counters = (int) strtol(argv[3],&end_ptr,10);
     if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed.8\n");
+                fprintf(stderr, "Error: strtol failed\n");
                 exit(1);
                 }
     int num_threads = (int) strtol(argv[2],&end_ptr,10);
     if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed.9\n");
+                fprintf(stderr, "Error: strtol failed\n");
                 exit(1);
                 }
     int log_enabled = (int) strtol(argv[4],&end_ptr,10);
     if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed.10\n");
+                fprintf(stderr, "Error: strtol failed\n");
                 exit(1);
                 }
 
@@ -609,20 +642,18 @@ int main(int argc, char* argv[])
         pthread_mutex_unlock(&fifo_mutex); // FIFO MUTEX UNLOCK
     }
 
-    //termination of worker loop
-    pthread_mutex_lock(&running_mutex); //MUTEX LOCK
+    //Termination of worker loop
     running_flag = 0;
-    pthread_mutex_unlock(&running_mutex); //MUTEX UNLOCK
 
+    //wake up all workers that waiting for cond war to exit
+    pthread_mutex_lock(&fifo_mutex); //MUTEX LOCK 
     pthread_cond_broadcast(&wake_up_worker);
+    pthread_mutex_unlock(&fifo_mutex); //MUTEX UNLOCK
 
     //Wait for all workers to finish
     for (int i = 0; i < num_threads; i++)
         {
-            printf("try to join %d worker\n",i); //DEBUG
             pthread_join(workers[i],NULL);
-            printf("thread %d sucsessfully joined \n",i); //DEBUG
-
         }
 
     //Destroy dynamic initiated mutexes
