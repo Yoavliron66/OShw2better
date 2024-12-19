@@ -368,8 +368,10 @@ void* worker_main(void *data)
 
         // Job execution - parse command and execute it
         for (int i = 0; i < count_commands; i++){
-            char* job_copy = job[i];
-            char* command_token = strtok(job_copy, " "); //separate between basic command parameters
+            char* job_temp = (char*) malloc ((strlen(job[i])+1)*sizeof(char));
+            //FIXME check for malloc
+            strcpy(job_temp,job[i]);
+            char* command_token = strtok(job_temp, " "); //separate between basic command parameters
             if (strcmp(command_token, "increment") == 0){
                 char* x = strtok(NULL, " "); //FIXME
                 char file_name[13];
@@ -413,6 +415,7 @@ void* worker_main(void *data)
                 repeat(i, job, count_commands, x_repeat);
                 break;
             }
+            free(job_temp);
         }
 
         //Trace handling
@@ -472,6 +475,7 @@ int main(int argc, char* argv[])
     worker_data thread_data[MAX_NUM_OF_THREADS];
     int sleep_time =0;
     char* end_ptr = NULL; //string for strtol usage
+    
     //Analyze the command line arguments
     if (argc != 5) {
                 fprintf(stderr, "Error: wrong number of arguments.\n");
