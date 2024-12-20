@@ -41,7 +41,7 @@ struct worker_data
     jobs_fifo* fifo;
     time_fifo* time_fifo;
     int thread_number;
-    time_t* start_time_ptr;
+    struct timespec* start_time_ptr;
     long long job_read_time_long;
     int log_enabled;
 }typedef worker_data;
