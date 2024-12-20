@@ -653,7 +653,10 @@ int main(int argc, char* argv[]) {
         {
             trimmed_job++;
         }
-        char* end = trimmed_job + strlen(trimmed_job) - 1;
+
+
+         char* end = trimmed_job + strlen(trimmed_job) - 1;
+
         while (end > trimmed_job && isspace((unsigned char)*end)) {
             *end = '\0';
             end--;
@@ -662,13 +665,18 @@ int main(int argc, char* argv[]) {
         if (*trimmed_job == '\0') {
             continue;
         }
-        //if (strcmp(job, "\n") == 0) continue; //empty line = "\n"
+
+       
+
+        if (strcmp(job, "\n") == 0) continue; //empty line = "\n"
+
         //Separate between worker and dispathcer job
         char* token = strtok_r(trimmed_job," ",&saveptr); // FIXME - check with Gadi, IGOR
         if (token == NULL) {
             fprintf(stderr, "Error:strtok failed.\n");
             exit(1);
         }
+        printf("Processing token: %s\n", token); //DEBUG
         //Dispatcher code
         if (strcmp(token,"dispatcher") == 0)
         {

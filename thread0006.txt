@@ -1,0 +1,2 @@
+TIME 44: START job increment 96; msleep 400; decrement 96
+TIME 56: END job increment 96; msleep 400; decrement 96
