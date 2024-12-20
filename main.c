@@ -637,18 +637,35 @@ int main(int argc, char* argv[]) {
             fclose(dispatcher_log_file);
         }
         char* saveptr;
+        // Remove the trailing newline character, if any
         char* new_line = strchr(job,'\n');
         //FIXME - correct it according to possible input
         if (new_line){
             *new_line = '\0';
         }
+        // Trim leading and trailing whitespace
+        char* trimmed_job = job;
+        while(isspace((unsigned char)*trimmed_job))
+        {
+            trimmed_job++;
+        }
+         char* end = trimmed_job + strlen(trimmed_job) - 1;
+        while (end > trimmed_job && isspace((unsigned char)*end)) {
+            *end = '\0';
+            end--;
+        }
+        // Skip empty or whitespace-only lines
+        if (*trimmed_job == '\0') {
+            continue;
+        }
         if (strcmp(job, "\n") == 0) continue; //empty line = "\n"
         //Separate between worker and dispathcer job
-        char* token = strtok_r(job," ",&saveptr); // FIXME - check with Gadi, IGOR
+        char* token = strtok_r(trimmed_job," ",&saveptr); // FIXME - check with Gadi, IGOR
         if (token == NULL) {
             fprintf(stderr, "Error:strtok failed.\n");
             exit(1);
         }
+        printf("Processing token: %s\n", token); //DEBUG
         //Dispatcher code
         if (strcmp(token,"dispatcher") == 0)
         {

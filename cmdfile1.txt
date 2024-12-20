@@ -1,0 +1,103 @@
+worker increment 0; msleep 100
+worker increment 2; msleep 100
+worker increment 3; msleep 100
+worker increment 4; msleep 100; decrement 4
+worker increment 5; msleep 100; decrement 5
+worker increment 6; msleep 100; decrement 6
+worker increment 7; msleep 100; decrement 7
+worker increment 8; msleep 100; decrement 8
+worker increment 9; msleep 100; decrement 9
+dispatcher _wait
+worker increment 10; msleep 150; decrement 10
+worker increment 11; msleep 150; decrement 11
+worker increment 12; msleep 150; decrement 12
+worker increment 13; msleep 150; decrement 13
+worker increment 14; msleep 150; decrement 14
+worker increment 15; msleep 150; decrement 15
+worker increment 16; msleep 150; decrement 16
+worker increment 17; msleep 150; decrement 17
+worker increment 18; msleep 150; decrement 18
+worker increment 19; msleep 150; decrement 19
+worker increment 20; msleep 300; decrement 20
+worker increment 21; msleep 300; decrement 21
+worker increment 22; msleep 300; decrement 22
+worker increment 23; msleep 300; decrement 23
+worker increment 24; msleep 300; decrement 24
+worker increment 25; msleep 300; decrement 25
+worker increment 26; msleep 300
+worker increment 27; msleep 300
+worker increment 28; msleep 300
+worker increment 29; msleep 300
+worker increment 29; msleep 300
+worker increment 29; msleep 300
+worker increment 30; msleep 200; decrement 30
+worker increment 31; msleep 200; decrement 31
+worker increment 32; msleep 200; decrement 32
+worker increment 33; msleep 200; decrement 33
+worker increment 34; msleep 200; decrement 34
+worker increment 35; msleep 200; decrement 35
+worker increment 36; msleep 200; decrement 36
+worker increment 37; msleep 200; decrement 37
+worker increment 38; msleep 200; decrement 38
+worker increment 39; msleep 200; decrement 39
+worker increment 40; msleep 400; decrement 40
+worker increment 41; msleep 400; decrement 41
+worker increment 42; msleep 400; decrement 42
+worker increment 43; msleep 400; decrement 43
+worker increment 44; msleep 400; decrement 44
+worker increment 45; msleep 400; decrement 45
+worker increment 46; msleep 400; decrement 46
+worker increment 47; msleep 400; decrement 47
+worker increment 48; msleep 400; decrement 48
+worker increment 49; msleep 400; decrement 49
+worker increment 50; msleep 250; decrement 50
+worker increment 51; msleep 250; decrement 51
+worker increment 52; msleep 250; decrement 52
+worker increment 53; msleep 250; decrement 53
+worker increment 54; msleep 250; decrement 54
+worker increment 55; msleep 250; decrement 55
+worker increment 56; msleep 250; decrement 56
+worker increment 57; msleep 250; decrement 57
+worker increment 58; msleep 250; decrement 58
+worker increment 59; msleep 250; decrement 59
+worker increment 60; msleep 200; decrement 60
+worker increment 61; msleep 200; decrement 61
+worker increment 62; msleep 200; decrement 62
+worker increment 63; msleep 200; decrement 63
+worker increment 64; msleep 200; decrement 64
+worker increment 65; msleep 200; decrement 65
+worker increment 66; msleep 200; decrement 66
+worker increment 67; msleep 200; decrement 67
+worker increment 68; msleep 200; decrement 68
+worker increment 69; msleep 200; decrement 69
+worker increment 70; msleep 150; decrement 70
+worker increment 71; msleep 150; decrement 71
+worker increment 72; msleep 150; decrement 72
+worker increment 73; msleep 150; decrement 73
+worker increment 74; msleep 150; decrement 74
+worker increment 75; msleep 150; decrement 75
+worker increment 76; msleep 150; decrement 76
+worker increment 77; msleep 150; decrement 77
+worker increment 78; msleep 150; decrement 78
+worker increment 79; msleep 150; decrement 79
+worker increment 80; msleep 300; decrement 80
+worker increment 81; msleep 300; decrement 81
+worker increment 82; msleep 300; decrement 82
+worker increment 83; msleep 300; decrement 83
+worker increment 84; msleep 300; decrement 84
+worker increment 85; msleep 300; decrement 85
+worker increment 86; msleep 300; decrement 86
+worker increment 87; msleep 300; decrement 87
+worker increment 88; msleep 300; decrement 88
+worker increment 89; msleep 300; decrement 89
+worker increment 90; msleep 400; decrement 90
+worker increment 91; msleep 400; decrement 91
+worker increment 92; msleep 400; decrement 92
+worker increment 93; msleep 400; decrement 93
+worker increment 94; msleep 400; decrement 94
+worker increment 95; msleep 400; decrement 95
+worker increment 96; msleep 400; decrement 96
+worker increment 97; msleep 400; decrement 97
+worker increment 98; msleep 400; decrement 98
+worker increment 99; msleep 400; decrement 99
+dispatcher _wait

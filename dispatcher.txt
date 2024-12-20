@@ -1,0 +1,205 @@
+TIME 0: read cmd line: worker increment 0; msleep 100
+
+TIME 0: read cmd line: worker increment 2; msleep 100
+
+TIME 0: read cmd line: worker increment 3; msleep 100
+
+TIME 0: read cmd line: worker increment 4; msleep 100; decrement 4
+
+TIME 0: read cmd line: worker increment 5; msleep 100; decrement 5
+
+TIME 0: read cmd line: worker increment 6; msleep 100; decrement 6
+
+TIME 0: read cmd line: worker increment 7; msleep 100; decrement 7
+
+TIME 0: read cmd line: worker increment 8; msleep 100; decrement 8
+
+TIME 0: read cmd line: worker increment 9; msleep 100; decrement 9
+
+TIME 0: read cmd line: dispatcher _wait
+
+TIME 0: read cmd line: worker increment 10; msleep 150; decrement 10
+
+TIME 0: read cmd line: worker increment 11; msleep 150; decrement 11
+
+TIME 0: read cmd line: worker increment 12; msleep 150; decrement 12
+
+TIME 0: read cmd line: worker increment 13; msleep 150; decrement 13
+
+TIME 0: read cmd line: worker increment 14; msleep 150; decrement 14
+
+TIME 0: read cmd line: worker increment 15; msleep 150; decrement 15
+
+TIME 0: read cmd line: worker increment 16; msleep 150; decrement 16
+
+TIME 0: read cmd line: worker increment 17; msleep 150; decrement 17
+
+TIME 0: read cmd line: worker increment 18; msleep 150; decrement 18
+
+TIME 0: read cmd line: worker increment 19; msleep 150; decrement 19
+
+TIME 0: read cmd line: worker increment 20; msleep 300; decrement 20
+
+TIME 0: read cmd line: worker increment 21; msleep 300; decrement 21
+
+TIME 0: read cmd line: worker increment 22; msleep 300; decrement 22
+
+TIME 0: read cmd line: worker increment 23; msleep 300; decrement 23
+
+TIME 0: read cmd line: worker increment 24; msleep 300; decrement 24
+
+TIME 0: read cmd line: worker increment 25; msleep 300; decrement 25
+
+TIME 0: read cmd line: worker increment 26; msleep 300
+
+TIME 0: read cmd line: worker increment 27; msleep 300
+
+TIME 0: read cmd line: worker increment 28; msleep 300
+
+TIME 0: read cmd line: worker increment 29; msleep 300
+
+TIME 0: read cmd line: worker increment 29; msleep 300
+
+TIME 0: read cmd line: worker increment 29; msleep 300
+
+TIME 0: read cmd line: worker increment 30; msleep 200; decrement 30
+
+TIME 0: read cmd line: worker increment 31; msleep 200; decrement 31
+
+TIME 0: read cmd line: worker increment 32; msleep 200; decrement 32
+
+TIME 0: read cmd line: worker increment 33; msleep 200; decrement 33
+
+TIME 0: read cmd line: worker increment 34; msleep 200; decrement 34
+
+TIME 0: read cmd line: worker increment 35; msleep 200; decrement 35
+
+TIME 0: read cmd line: worker increment 36; msleep 200; decrement 36
+
+TIME 0: read cmd line: worker increment 37; msleep 200; decrement 37
+
+TIME 0: read cmd line: worker increment 38; msleep 200; decrement 38
+
+TIME 0: read cmd line: worker increment 39; msleep 200; decrement 39
+
+TIME 0: read cmd line: worker increment 40; msleep 400; decrement 40
+
+TIME 0: read cmd line: worker increment 41; msleep 400; decrement 41
+
+TIME 0: read cmd line: worker increment 42; msleep 400; decrement 42
+
+TIME 0: read cmd line: worker increment 43; msleep 400; decrement 43
+
+TIME 0: read cmd line: worker increment 44; msleep 400; decrement 44
+
+TIME 0: read cmd line: worker increment 45; msleep 400; decrement 45
+
+TIME 0: read cmd line: worker increment 46; msleep 400; decrement 46
+
+TIME 0: read cmd line: worker increment 47; msleep 400; decrement 47
+
+TIME 0: read cmd line: worker increment 48; msleep 400; decrement 48
+
+TIME 0: read cmd line: worker increment 49; msleep 400; decrement 49
+
+TIME 0: read cmd line: worker increment 50; msleep 250; decrement 50
+
+TIME 0: read cmd line: worker increment 51; msleep 250; decrement 51
+
+TIME 0: read cmd line: worker increment 52; msleep 250; decrement 52
+
+TIME 0: read cmd line: worker increment 53; msleep 250; decrement 53
+
+TIME 0: read cmd line: worker increment 54; msleep 250; decrement 54
+
+TIME 0: read cmd line: worker increment 55; msleep 250; decrement 55
+
+TIME 0: read cmd line: worker increment 56; msleep 250; decrement 56
+
+TIME 0: read cmd line: worker increment 57; msleep 250; decrement 57
+
+TIME 0: read cmd line: worker increment 58; msleep 250; decrement 58
+
+TIME 0: read cmd line: worker increment 59; msleep 250; decrement 59
+
+TIME 0: read cmd line: worker increment 60; msleep 200; decrement 60
+
+TIME 0: read cmd line: worker increment 61; msleep 200; decrement 61
+
+TIME 0: read cmd line: worker increment 62; msleep 200; decrement 62
+
+TIME 0: read cmd line: worker increment 63; msleep 200; decrement 63
+
+TIME 0: read cmd line: worker increment 64; msleep 200; decrement 64
+
+TIME 0: read cmd line: worker increment 65; msleep 200; decrement 65
+
+TIME 0: read cmd line: worker increment 66; msleep 200; decrement 66
+
+TIME 0: read cmd line: worker increment 67; msleep 200; decrement 67
+
+TIME 0: read cmd line: worker increment 68; msleep 200; decrement 68
+
+TIME 0: read cmd line: worker increment 69; msleep 200; decrement 69
+
+TIME 0: read cmd line: worker increment 70; msleep 150; decrement 70
+
+TIME 0: read cmd line: worker increment 71; msleep 150; decrement 71
+
+TIME 0: read cmd line: worker increment 72; msleep 150; decrement 72
+
+TIME 0: read cmd line: worker increment 73; msleep 150; decrement 73
+
+TIME 0: read cmd line: worker increment 74; msleep 150; decrement 74
+
+TIME 0: read cmd line: worker increment 75; msleep 150; decrement 75
+
+TIME 0: read cmd line: worker increment 76; msleep 150; decrement 76
+
+TIME 0: read cmd line: worker increment 77; msleep 150; decrement 77
+
+TIME 0: read cmd line: worker increment 78; msleep 150; decrement 78
+
+TIME 0: read cmd line: worker increment 79; msleep 150; decrement 79
+
+TIME 0: read cmd line: worker increment 80; msleep 300; decrement 80
+
+TIME 0: read cmd line: worker increment 81; msleep 300; decrement 81
+
+TIME 0: read cmd line: worker increment 82; msleep 300; decrement 82
+
+TIME 0: read cmd line: worker increment 83; msleep 300; decrement 83
+
+TIME 0: read cmd line: worker increment 84; msleep 300; decrement 84
+
+TIME 0: read cmd line: worker increment 85; msleep 300; decrement 85
+
+TIME 0: read cmd line: worker increment 86; msleep 300; decrement 86
+
+TIME 0: read cmd line: worker increment 87; msleep 300; decrement 87
+
+TIME 0: read cmd line: worker increment 88; msleep 300; decrement 88
+
+TIME 0: read cmd line: worker increment 89; msleep 300; decrement 89
+
+TIME 0: read cmd line: worker increment 90; msleep 400; decrement 90
+
+TIME 0: read cmd line: worker increment 91; msleep 400; decrement 91
+
+TIME 0: read cmd line: worker increment 92; msleep 400; decrement 92
+
+TIME 0: read cmd line: worker increment 93; msleep 400; decrement 93
+
+TIME 0: read cmd line: worker increment 94; msleep 400; decrement 94
+
+TIME 0: read cmd line: worker increment 95; msleep 400; decrement 95
+
+TIME 0: read cmd line: worker increment 96; msleep 400; decrement 96
+
+TIME 0: read cmd line: worker increment 97; msleep 400; decrement 97
+
+TIME 0: read cmd line: worker increment 98; msleep 400; decrement 98
+
+TIME 0: read cmd line: worker increment 99; msleep 400; decrement 99
+
+TIME 0: read cmd line: dispatcher _wait
