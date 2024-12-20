@@ -99,6 +99,67 @@ void free_fifo(jobs_fifo* fifo){
     }
 }
 
+// time fifo functions
+bool is_time_fifo_empty(time_fifo* fifo){
+    if (fifo ->size == 0){
+        return true;
+    }
+    return false;
+}
+
+bool is_time_fifo_full(time_fifo* fifo){
+    if (fifo -> size == NUM_OF_OUTSTANDING){
+        return true;
+    }
+    return false;
+}
+
+void time_fifo_push(time_fifo* fifo, long long inserted_time){
+    //FIFO is full case
+    if (is_time_fifo_full(fifo)){
+        printf("Tried to push to a full FIFO, push aborted, job lost");
+        return;
+    }
+
+    //FIFO is not full case
+    fifo->read_time[fifo->wr_ptr] = inserted_time;
+    //wrap around
+    if (fifo->wr_ptr == NUM_OF_OUTSTANDING - 1){
+        fifo->wr_ptr = 0;
+    }
+    else {
+        fifo->wr_ptr ++;
+    }
+
+    fifo->size ++;
+}
+
+long long time_fifo_pop(time_fifo* fifo){
+    long long res;
+    if (is_time_fifo_empty(fifo)){
+        printf("Tried to pop from an empty FIFO, popping NULL");
+    }
+    res = fifo->read_time[fifo->rd_ptr];
+    //wrap -around
+    if (fifo->rd_ptr == NUM_OF_OUTSTANDING - 1){
+        fifo->rd_ptr = 0;
+    }
+    else {
+        fifo->rd_ptr ++;
+    }
+    fifo->size --;
+    return res;
+}
+
+void init_time_fifo(time_fifo* fifo){
+    for (int i = 0; i < NUM_OF_OUTSTANDING; i++){
+        fifo->read_time[i] = 0;
+    }
+    fifo->size = 0;
+    fifo->rd_ptr = 0;
+    fifo->wr_ptr = 0;
+}
+
 int counter_semicolon(char *command)
 {
     int counter = 0;
@@ -302,16 +363,6 @@ void* worker_main(void *data)
         break;
         }
 
-        // Open the worker log file
-        char worker_log_file_name[20];
-        sprintf(worker_log_file_name, "thread%04d.txt", whoami); // Zero-padded to 4 digits
-        FILE* thread_log_file;
-        thread_log_file = fopen(worker_log_file_name, "w");
-        if (thread_log_file == NULL) {
-            printf("worker %d failed to open his log file with path %s", whoami, worker_log_file_name);
-            exit(1);
-        }
-
         //Check if FIFO is empty
         pthread_mutex_lock(&fifo_mutex);
         while (is_fifo_empty(fifo))
@@ -331,7 +382,6 @@ void* worker_main(void *data)
         long long read_time = time_fifo_pop(time_fifo);
         pthread_mutex_unlock(&fifo_mutex);
 
-        printf("commandline is: %s\n",command_line);
         //Handle awake workers counter - increment
         pthread_mutex_lock(&num_awake_workers_mutex);
         num_awake_workers ++;
@@ -365,7 +415,7 @@ void* worker_main(void *data)
         sprintf(worker_log_file_name, "thread%04d.txt", whoami); // Zero-padded to 4 digits
         FILE* thread_log_file;
         if (log_enabled) {
-            thread_log_file = fopen(worker_log_file_name, "w");
+            thread_log_file = fopen(worker_log_file_name, "a");
             if (thread_log_file == NULL) {
                 printf("worker %d failed to open his log file with path %s", whoami, worker_log_file_name);
                 exit(1);
@@ -381,13 +431,12 @@ void* worker_main(void *data)
         time_t job_ended_time = clock();
         long long job_end_elapsed_time = ((long long)(job_ended_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
         if (log_enabled) {
-            thread_log_file = fopen(worker_log_file_name, "w");
+            thread_log_file = fopen(worker_log_file_name, "a");
             if (thread_log_file == NULL) {
                 printf("worker %d failed to open his log file with path %s", whoami, worker_log_file_name);
                 exit(1);
             }
             fprintf(thread_log_file, "TIME %lld: END job %s\n", job_end_elapsed_time, command_line);
-
         //Free all allocated memory - parsed_command_line
             fclose(thread_log_file);
         }
@@ -579,7 +628,7 @@ int main(int argc, char* argv[]) {
         time_t job_read_time = clock();
         long long job_read_time_long = (long long)(job_read_time/CLOCKS_PER_SEC)*1000;
         if (log_enabled) {
-            dispatcher_log_file = fopen("dispatcher.txt", "w");
+            dispatcher_log_file = fopen("dispatcher.txt", "a");
             if (dispatcher_log_file == NULL) {
                 printf("Failed to open dispatcher log file, exiting main.\n");
                 exit(1);
