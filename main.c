@@ -390,7 +390,7 @@ void* worker_main(void *data)
 
         //Mem alloc for parsed command line
         int num_of_semicolons = counter_semicolon(command_line);
-        char **parsed_command_line =(char**) malloc(4096); //num_of_semicolons*sizeof(char*)
+        char **parsed_command_line =(char**) malloc((num_of_semicolons + 1)*sizeof(char*)); //num_of_semicolons*sizeof(char*)
         if (parsed_command_line == NULL)
         {
             fprintf(stderr, "Error: Memory allocation failed for parsed command line\n");
