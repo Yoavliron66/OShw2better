@@ -72,7 +72,7 @@ char* fifo_pop(jobs_fifo* fifo){
         return res;
     }
     res = fifo->jobs[fifo->rd_ptr];
-    
+
     //wrap -around
     if (fifo->rd_ptr == NUM_OF_OUTSTANDING - 1){
         fifo->rd_ptr = 0;
@@ -187,8 +187,8 @@ void parse_command(const char *command, char** parsed_command_line,int num_of_ba
     char *saveptr;
     char *token = strtok_r(command_line_copy, ";", &saveptr);
 
-    while (index < num_of_basic_commands && token != NULL) {  
-    parsed_command_line[index] = (char*)malloc((strlen(token) + 1) * sizeof(char));
+    while (index < num_of_basic_commands && token != NULL) {
+    parsed_command_line[index] = (char*)malloc((strlen(token) + 1) * sizeof(char)); //
     if (parsed_command_line[index] == NULL) {
         fprintf(stderr, "Error: Memory allocation failed for job %d.\n", index);
         free(command_line_copy);
@@ -202,9 +202,10 @@ void parse_command(const char *command, char** parsed_command_line,int num_of_ba
     strcpy(parsed_command_line[index], token);
     index++;
     token = strtok_r(NULL, ";", &saveptr);
-    
+
     }
     free(command_line_copy);
+    command_line_copy = NULL;
     return;
 }
 
@@ -240,7 +241,7 @@ void update_counter_file(char *filename, int delta, int counter_number)
     }
     fclose(fd);
 
-    int val_to_print = val + delta; 
+    int val_to_print = val + delta;
     fd = fopen(filename, "w");
 
     if (fd == NULL)
@@ -263,8 +264,8 @@ void msleep (int mseconds)
 
 void repeat (int start_index, char** parsed_command_line, int num_of_basic_commands, int times)
 {
-    
-    //Repeat basic comands after "repeat" x timex 
+
+    //Repeat basic comands after "repeat" x timex
     for (int j=0;j<times;j++){
         for (int i = start_index+1; i < num_of_basic_commands; i++){
 
@@ -275,7 +276,7 @@ void repeat (int start_index, char** parsed_command_line, int num_of_basic_comma
                 free (command_copy);
                 exit(1);
             }
-            
+
             //Copy
             strcpy(command_copy,parsed_command_line[i]);
 
@@ -288,7 +289,7 @@ void repeat (int start_index, char** parsed_command_line, int num_of_basic_comma
                 free (command_copy);
                 exit(1);
             }
-            
+
             if (strcmp(command_token, "increment") == 0){
                 command_token = strtok_r(NULL, " ",&saveptr);
                 char file_name[COUNTER_FILE_NAME_WIDTH];
@@ -308,7 +309,7 @@ void repeat (int start_index, char** parsed_command_line, int num_of_basic_comma
                 char* x = strtok_r(NULL, " ",&saveptr);
                 int x_sleep = (int)strtol(x, NULL, 10);
                 usleep(x_sleep*1000);
-            }    
+            }
             free(command_copy);
             command_copy = NULL;
         }//end of for i
@@ -367,7 +368,7 @@ void* worker_main(void *data)
         pthread_mutex_lock(&fifo_mutex);
         while (is_fifo_empty(fifo))
         {
-    
+
             if (!running_flag) {
                 pthread_mutex_unlock(&fifo_mutex);
                 pthread_exit(NULL);
@@ -389,7 +390,7 @@ void* worker_main(void *data)
 
         //Mem alloc for parsed command line
         int num_of_semicolons = counter_semicolon(command_line);
-        char **parsed_command_line =(char**) malloc(num_of_semicolons*sizeof(char*)); 
+        char **parsed_command_line =(char**) malloc(4096); //num_of_semicolons*sizeof(char*)
         if (parsed_command_line == NULL)
         {
             fprintf(stderr, "Error: Memory allocation failed for parsed command line\n");
@@ -401,11 +402,11 @@ void* worker_main(void *data)
         {
             parsed_command_line[i] = NULL;
         }
-        
+
         //Parse command line into parsed command line, separate by ;
         int num_of_basic_commands = num_of_semicolons +1;
         parse_command(command_line,parsed_command_line, num_of_basic_commands);
-    
+
         //Start point for job-execution time
         time_t job_started_time;
         job_started_time = clock();
@@ -441,7 +442,7 @@ void* worker_main(void *data)
             fclose(thread_log_file);
         }
         free_parsed_command(parsed_command_line,num_of_basic_commands); //FIXME - free each parsed_command_line [i]
-        
+
         //Log and statistics handling
         pthread_mutex_lock(&global_time_vars_mutex);
         long long delta_worktime = ((long long)(job_end_elapsed_time - read_time) *1000) / CLOCKS_PER_SEC;
@@ -455,7 +456,7 @@ void* worker_main(void *data)
         number_of_jobs++;
         pthread_mutex_unlock(&global_time_vars_mutex);
 
-        pthread_mutex_unlock(&global_time_vars_mutex);   
+        pthread_mutex_unlock(&global_time_vars_mutex);
 
         //Handle awake workers counter - decrement + wake-up call to dispatcher
         pthread_mutex_lock(&num_awake_workers_mutex);
@@ -478,7 +479,7 @@ void execute_command_line(int num_of_basic_commands, char** parsed_command_line 
                 free (command_copy);
                 exit(1);
             }
-            
+
             //Copy
             strcpy(command_copy,parsed_command_line[i]);
 
@@ -491,7 +492,7 @@ void execute_command_line(int num_of_basic_commands, char** parsed_command_line 
                 free (command_copy);
                 exit(1);
             }
-            
+
             if (strcmp(command_token, "increment") == 0){
                 command_token = strtok_r(NULL, " ",&saveptr);
                 char file_name[COUNTER_FILE_NAME_WIDTH];
@@ -543,7 +544,7 @@ int main(int argc, char* argv[]) {
     bool empty = false;
     worker_data thread_data[MAX_NUM_OF_THREADS];
     int sleep_time =0;
-    
+
     //Analyze the command line arguments
     if (argc != 5) {
         fprintf(stderr, "Error: wrong number of arguments.\n");
@@ -652,7 +653,7 @@ int main(int argc, char* argv[]) {
         //Dispatcher code
         if (strcmp(token,"dispatcher") == 0)
         {
-            token = strtok_r(NULL," ",&saveptr); 
+            token = strtok_r(NULL," ",&saveptr);
             if (token == NULL) {
                 fprintf(stderr, "Error: missing command after 'dispatcher'.\n");
                 exit(1);
@@ -750,11 +751,11 @@ int main(int argc, char* argv[]) {
         }
     //Destroy dynamic initiated mutexes
     destroy_mutexes();
-    
+
     //Free counters names array
     for (int i = 0; i < num_counters; i++) {
     if (counters_names[i] != NULL){
-    free(counters_names[i]); 
+    free(counters_names[i]);
     counters_names[i] = NULL;}
     }
 
@@ -783,6 +784,3 @@ int main(int argc, char* argv[]) {
         return 0;
 
 }
-
-
-
