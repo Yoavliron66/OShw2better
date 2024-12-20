@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <time.h>
-
+#include <ctype.h>
 
 
 #define MAX_NUM_OF_THREADS 4096
@@ -40,7 +40,7 @@ struct worker_data
     jobs_fifo* fifo;
     time_fifo* time_fifo;
     int thread_number;
-    time_t* start_time_ptr;
+    struct timespec* start_time_ptr;
     long long job_read_time_long;
     int log_enabled;
 }typedef worker_data;

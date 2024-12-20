@@ -353,7 +353,8 @@ void* worker_main(void *data)
     jobs_fifo* fifo = wdata->fifo;
     time_fifo* time_fifo = wdata->time_fifo;
     int whoami = wdata->thread_number;
-    time_t* start_known_to_w = wdata->start_time_ptr;
+    struct timespec* start_known_to_w = wdata->start_time_ptr;
+    long long start_time_known_to_w_long = start_known_to_w->tv_sec *1000;
     int log_enabled = wdata->log_enabled;
     char* end_ptr = NULL; // string for strtol usage
     //init log file
@@ -408,9 +409,9 @@ void* worker_main(void *data)
         parse_command(command_line,parsed_command_line, num_of_basic_commands);
 
         //Start point for job-execution time
-        time_t job_started_time;
-        job_started_time = clock();
-        long long job_start_elapsed_time = ((long long)(job_started_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
+        struct timespec job_started_time;
+        clock_gettime(CLOCK_REALTIME, &job_started_time);
+        long long job_start_elapsed_time = job_started_time.tv_sec - start_time_known_to_w_long;
         // Open the worker log file
         char worker_log_file_name[20];
         sprintf(worker_log_file_name, "thread%04d.txt", whoami); // Zero-padded to 4 digits
@@ -429,8 +430,9 @@ void* worker_main(void *data)
         execute_command_line(num_of_basic_commands,parsed_command_line);
 
         //Stop point for job-execution time
-        time_t job_ended_time = clock();
-        long long job_end_elapsed_time = ((long long)(job_ended_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
+        struct timespec job_ended_time;
+        clock_gettime(CLOCK_REALTIME, &job_ended_time);
+        long long job_end_elapsed_time = (job_ended_time.tv_sec - start_time_known_to_w_long);
         if (log_enabled) {
             thread_log_file = fopen(worker_log_file_name, "a");
             if (thread_log_file == NULL) {
@@ -445,7 +447,7 @@ void* worker_main(void *data)
 
         //Log and statistics handling
         pthread_mutex_lock(&global_time_vars_mutex);
-        long long delta_worktime = ((long long)(job_end_elapsed_time - read_time) *1000) / CLOCKS_PER_SEC;
+        long long delta_worktime = (job_end_elapsed_time - read_time);
         jobs_turnaround_time += delta_worktime;
         if (delta_worktime < jobs_mintime) {
             jobs_mintime = delta_worktime;
@@ -532,8 +534,8 @@ int main(int argc, char* argv[]) {
     //Mutexes initialization
     init_mutexes();
     //Start point of the timer
-    time_t start_time;
-    start_time = clock();
+    struct timespec start_time, end_time;
+    clock_gettime(CLOCK_REALTIME, &start_time);
     //Initialize the dispatcher
     jobs_fifo fifo;
     init_fifo(&fifo);
@@ -546,16 +548,16 @@ int main(int argc, char* argv[]) {
     int sleep_time =0;
 
     //Analyze the command line arguments
-    if (argc != 5) {
-        fprintf(stderr, "Error: wrong number of arguments.\n");
-        exit(1);
-    }
+   // if (argc != 5) {
+      //  fprintf(stderr, "Error: wrong number of arguments.\n");
+     //   exit(1);
+   // }
 
-    int num_counters = (int) strtol(argv[3],NULL,10);
-    int num_threads = (int) strtol(argv[2],NULL,10);
-    int log_enabled = (int) strtol(argv[4],NULL,10);
+    int num_counters = 100; //(int) strtol(argv[3],NULL,10);
+    int num_threads =  100;//(int) strtol(argv[2],NULL,10);
+    int log_enabled = 1;//(int) strtol(argv[4],NULL,10);
 
-    FILE* cmd_file_fp = fopen(argv[1],"r");
+    FILE* cmd_file_fp = fopen("/home/or/hw2repo/OShw2_good/OShw2better/cmdfile.txt","r"); //argv[1]
     if (cmd_file_fp == NULL) {
         fprintf(stderr, "Error: Cmd file opening fail.\n");
         exit(1);
@@ -626,8 +628,9 @@ int main(int argc, char* argv[]) {
     //Read the jobs from the cmdfile
     char job[MAX_LINE_WIDTH];
     while (fgets(job,MAX_LINE_WIDTH,cmd_file_fp)) {
-        time_t job_read_time = clock();
-        long long job_read_time_long = (long long)(job_read_time/CLOCKS_PER_SEC)*1000;
+        struct timespec read_time;
+        clock_gettime(CLOCK_REALTIME, &read_time);
+        long long job_read_time_long = read_time.tv_sec * 1000;
         if (log_enabled) {
             dispatcher_log_file = fopen("dispatcher.txt", "a");
             if (dispatcher_log_file == NULL) {
@@ -638,14 +641,30 @@ int main(int argc, char* argv[]) {
             fclose(dispatcher_log_file);
         }
         char* saveptr;
+        // Remove the trailing newline character, if any
         char* new_line = strchr(job,'\n');
         //FIXME - correct it according to possible input
         if (new_line){
             *new_line = '\0';
         }
-        if (strcmp(job, "\n") == 0) continue; //empty line = "\n"
+        // Trim leading and trailing whitespace
+        char* trimmed_job = job;
+        while(isspace((unsigned char)*trimmed_job))
+        {
+            trimmed_job++;
+        }
+        char* end = trimmed_job + strlen(trimmed_job) - 1;
+        while (end > trimmed_job && isspace((unsigned char)*end)) {
+            *end = '\0';
+            end--;
+        }
+        // Skip empty or whitespace-only lines
+        if (*trimmed_job == '\0') {
+            continue;
+        }
+        //if (strcmp(job, "\n") == 0) continue; //empty line = "\n"
         //Separate between worker and dispathcer job
-        char* token = strtok_r(job," ",&saveptr); // FIXME - check with Gadi, IGOR
+        char* token = strtok_r(trimmed_job," ",&saveptr); // FIXME - check with Gadi, IGOR
         if (token == NULL) {
             fprintf(stderr, "Error:strtok failed.\n");
             exit(1);
@@ -763,16 +782,15 @@ int main(int argc, char* argv[]) {
         free_fifo(&fifo);
 
         //Statistics
-        pthread_mutex_lock(&global_time_vars_mutex);
         FILE* stat_file;
         stat_file = fopen("stats.txt", "w");
         if (stat_file == NULL) {
             printf("Stat file tereminate\n");
             exit(1);
         }
-        time_t end_main_time;
-        end_main_time = clock();
-        long long end_time_elapsed = (end_main_time - start_time)/CLOCKS_PER_SEC * 1000;
+
+        clock_gettime(CLOCK_REALTIME,&end_time);
+        long long end_time_elapsed = (end_time.tv_sec - start_time.tv_sec);
         float avg_job_time = jobs_turnaround_time/number_of_jobs;
         fprintf(stat_file,"total running time: %lld milliseconds\n",end_time_elapsed);
         fprintf(stat_file,"sum of jobs turnaround time: %lld milliseconds\n",jobs_turnaround_time);
@@ -780,7 +798,6 @@ int main(int argc, char* argv[]) {
         fprintf(stat_file, "average job turnaround time: %f milliseconds\n", avg_job_time);
         fprintf(stat_file,"max job turnaround time: %lld milliseconds\n", jobs_maxtime);
         fclose(stat_file);
-        pthread_mutex_unlock(&global_time_vars_mutex);
         return 0;
 
 }
