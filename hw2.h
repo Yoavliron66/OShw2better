@@ -15,6 +15,7 @@
 #define MAX_LINE_WIDTH 1024
 #define NUM_OF_OUTSTANDING 4096
 #define MAX_NUM_OF_JOBS 100
+#define COUNTER_FILE_NAME_WIDTH 13
 
 
 typedef struct JOBSFIFO
@@ -42,4 +43,5 @@ char* fifo_pop(jobs_fifo* fifo);
 void free_fifo(jobs_fifo* fifo);
 void init_fifo(jobs_fifo* fifo);
 void free_fifo(jobs_fifo* fifo);
-void counter_file_name(char* command_x, char filename[13]);
+void make_file_name(char* command_x, char filename[COUNTER_FILE_NAME_WIDTH]);
+void execute_command_line(int num_of_basic_commands, char** parsed_command_line);

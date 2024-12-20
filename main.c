@@ -82,17 +82,6 @@ char* fifo_pop(jobs_fifo* fifo){
     return res;
 }
 
-// FIX ME - check if needed
-// void free_fifo(jobs_fifo* fifo){
-//     for (int i = 0; i < NUM_OF_OUTSTANDING; i++){
-//         if (fifo->jobs[i] == NULL) {
-//             continue;
-//         }
-//         free(fifo->jobs[i]);
-//     }
-// }
-
-
 void init_fifo(jobs_fifo* fifo){
     for (int i = 0; i < NUM_OF_OUTSTANDING; i++){
         fifo->jobs[i] = malloc(1024*sizeof(char*)); //mem alloc to each job, note that max_line_width = 1024
@@ -108,11 +97,12 @@ void free_fifo(jobs_fifo* fifo){
     }
 }
 
-int counter_semicolon(char *command) //FIXME - segmentation error
+int counter_semicolon(char *command)
 {
     int counter = 0;
     char* ptr = command;
     int i = 0;
+
     while (ptr[i] != '\0') {
         if (ptr[i] == ';') counter++;
         i++;
@@ -120,65 +110,48 @@ int counter_semicolon(char *command) //FIXME - segmentation error
     return counter;
 }
 
-// int parse_command(char* command, char* job[MAX_NUM_OF_JOBS]){
-//     int arg_count = counter_semicolon(command) + 1;
-//     char *token = strtok(command, ";");
-//     int i = 0;
-//     while (token != NULL)
-//     {
-//         job[i] = (char*)malloc((strlen(token) + 1)*sizeof(char));
-//         //printf("token is :%s, counter is :%d \n",token, arg_count);
-//         strcpy(job[i], token);
-//         i++;
-//         token = strtok(NULL, ";");
-//     }
-//     return arg_count;
-// }
-int parse_command(const char *command, char* job[MAX_NUM_OF_JOBS]) {
-    char *command_copy = (char*)malloc((strlen(command) + 1) * sizeof(char));
-    if (command_copy == NULL) {
+void parse_command(const char *command, char** parsed_command_line,int num_of_basic_commands) {
+
+    //Allocate mem for copy
+    char *command_line_copy = (char*)malloc((strlen(command) + 1) * sizeof(char));
+    if (command_line_copy == NULL) {
         fprintf(stderr, "Error: Memory allocation failed for command copy.\n");
         exit(1);
     }
-    strcpy(command_copy, command);
+    strcpy(command_line_copy, command);
 
-    int arg_count = 0;
-    char *token = strtok(command_copy, ";");
-    
-    while (token != NULL) {
-        if (arg_count >= MAX_NUM_OF_JOBS) {
-            fprintf(stderr, "Error: Exceeded maximum number of jobs (%d).\n", MAX_NUM_OF_JOBS);
-            free(command_copy);
-            for (int j = 0; j < arg_count; j++) {
-                free(job[j]); 
-            }
-            exit(1);
-        }
-        
-        job[arg_count] = (char*)malloc((strlen(token) + 1) * sizeof(char));
-        if (job[arg_count] == NULL) {
-            fprintf(stderr, "Error: Memory allocation failed for job %d.\n", arg_count);
-            free(command_copy);
-            for (int j = 0; j < arg_count; j++) {
-                free(job[j]);
-            }
-            exit(1);
-        }
+    int index = 0;
+    char *saveptr;
+    char *token = strtok_r(command_line_copy, ";", &saveptr);
 
-        strcpy(job[arg_count], token);
-        arg_count++;
-        token = strtok(NULL, ";");
+    while (index < num_of_basic_commands && token != NULL) {  
+    parsed_command_line[index] = (char*)malloc((strlen(token) + 1) * sizeof(char));
+    if (parsed_command_line[index] == NULL) {
+        fprintf(stderr, "Error: Memory allocation failed for job %d.\n", index);
+        free(command_line_copy);
+        for (int j = 0; j < index; j++) {
+            free(parsed_command_line[j]);
+            parsed_command_line[j] = NULL;
+        }
+        exit(1);
     }
 
-    free(command_copy);
-    return arg_count;
+    strcpy(parsed_command_line[index], token);
+    index++;
+    token = strtok_r(NULL, ";", &saveptr);
+    
+    }
+    free(command_line_copy);
+    return;
 }
 
 // Free the allocated memory for argv
-void free_parsed_command(char* job[MAX_NUM_OF_JOBS], int arg_count) {
-    for (int i = 0; i < arg_count; i++) {
-        free(job[i]);
+void free_parsed_command(char** parsed_command_line, int num_of_basic_commands) {
+    for (int i = 1; i < num_of_basic_commands; i++) {
+        free(parsed_command_line[i]);
     }
+    free (parsed_command_line);
+    return;
 }
 
 //Worker increment/decrement x which delta is for -1 or +1
@@ -225,51 +198,61 @@ void msleep (int mseconds)
     usleep(mseconds*1000);
 }
 
-void repeat (int start_command, char** job, int count_commands, int times)
+void repeat (int start_index, char** parsed_command_line, int num_of_basic_commands, int times)
 {
-    char* end_ptr = NULL;
-    for (int j=0;j<times;j++)
-    {
-       for (int i = start_command + 1; i < count_commands; i++){
-            char* command_token = strtok(job[i], " ");
-            if (command_token == NULL) continue;
+    
+    //Repeat basic comands after "repeat" x timex 
+    for (int j=0;j<times;j++){
+        for (int i = start_index+1; i < num_of_basic_commands; i++){
+
+            char* command_copy = (char*) malloc ((strlen(parsed_command_line[i])+1)*sizeof(char));
+            if (command_copy == NULL)
+            {
+                fprintf(stderr, "Error: Memory allocation failed for job %d.\n",i);
+                free (command_copy);
+                exit(1);
+            }
+            
+            //Copy
+            strcpy(command_copy,parsed_command_line[i]);
+
+            //Parse by " "
+            char *saveptr;
+            char* command_token = strtok_r(command_copy, " ",&saveptr);
+            if (command_token == NULL)
+            {
+                fprintf(stderr, "Error: strtok failed for command %d :%s\n",i,parsed_command_line[i]);
+                free (command_copy);
+                exit(1);
+            }
+            
             if (strcmp(command_token, "increment") == 0){
-                char* x = strtok(NULL, " ");
-                char file_name[13];
-                int counter_number = strtol(x, &end_ptr, 10); //FIXME - seg fault
-                // if (*end_ptr != '\0') {
-                //     fprintf(stderr, "Error: strtol failed.4, Job lost\n");
-                //     exit(1);
-                // }
-                counter_file_name(x, file_name);
+                command_token = strtok_r(NULL, " ",&saveptr);
+                char file_name[COUNTER_FILE_NAME_WIDTH];
+                int counter_number = (int) strtol(command_token,NULL, 10);
+                make_file_name(command_token, file_name);
                 update_counter_file(file_name, 1,counter_number);
             }
             if (strcmp(command_token, "decrement") == 0){
-                char* x = strtok(NULL, " ");
-                char file_name[13];
-                int counter_number = strtol(x, &end_ptr, 10);
-                if (*end_ptr != '\0') {
-                    fprintf(stderr, "Error: strtol failed.\n");
-                    exit(1);
-                }
-                counter_file_name(x, file_name);
+                char* x = strtok_r(NULL, " ",&saveptr);
+                char file_name[COUNTER_FILE_NAME_WIDTH];
+                int counter_number = strtol(x, NULL, 10);
+                make_file_name(x, file_name);
                 update_counter_file(file_name, -1,counter_number);
             }
             if (strcmp(command_token, "msleep") == 0)
             {
-                char* x = strtok(NULL, " ");
-                int x_sleep = strtol(x, &end_ptr, 10);
-                if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed\n");
-                exit(1);
-                }
+                char* x = strtok_r(NULL, " ",&saveptr);
+                int x_sleep = (int)strtol(x, NULL, 10);
                 usleep(x_sleep*1000);
-            }
-        }
-    }
+            }    
+            free(command_copy);
+            command_copy = NULL;
+        }//end of for i
+    }//end of for j
 }
 
-void counter_file_name(char* command_x, char filename[13])
+void make_file_name(char* command_x, char filename[COUNTER_FILE_NAME_WIDTH])
 {
     //FIXME - pls add comments
     strcpy(filename, "counterxx.txt");
@@ -340,90 +323,51 @@ void* worker_main(void *data)
 
         // Try to pop job from FIFO
         pthread_mutex_lock(&fifo_mutex); //MUTEX LOCK
-        char* command = fifo_pop(fifo);
+        char* command_line = fifo_pop(fifo);
         pthread_mutex_unlock(&fifo_mutex);
 
+        printf("commandline is: %s\n",command_line);
         //Handle awake workers counter - increment
         pthread_mutex_lock(&num_awake_workers_mutex);
         num_awake_workers ++;
         pthread_mutex_unlock(&num_awake_workers_mutex);
 
-        char *job[MAX_NUM_OF_JOBS];
-        //Jobs starts here
-        //calc start jobs time
-        int count_commands = parse_command(command,job);
-        printf("the command is: ");
-        for (int i = 0; i < count_commands; i++) //DEBUG
+        //Mem alloc for parsed command line
+        int num_of_semicolons = counter_semicolon(command_line);
+        char **parsed_command_line =(char**) malloc(num_of_semicolons*sizeof(char*)); 
+        if (parsed_command_line == NULL)
         {
-            
-            printf(" %s ",job[i]);
-
+            fprintf(stderr, "Error: Memory allocation failed for parsed command line\n");
+            free (parsed_command_line);
+            exit(1);
         }
-        printf("\n");
-
+        //Init parsed_command_line
+        for (int i = 0; i < num_of_semicolons; i++)
+        {
+            parsed_command_line[i] = NULL;
+        }
+        
+        //Parse command line into parsed command line, separate by ;
+        int num_of_basic_commands = num_of_semicolons +1;
+        parse_command(command_line,parsed_command_line, num_of_basic_commands);
+    
+        //Start point for job-execution time
         time_t job_started_time;
         job_started_time = clock();
         long long job_start_elapsed_time = ((long long)(job_started_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
-        fprintf(thread_log_file, "TIME %lld: START job %s\n", job_start_elapsed_time, command);
+        fprintf(thread_log_file, "TIME %lld: START job %s\n", job_start_elapsed_time, command_line);
 
-        // Job execution - parse command and execute it
-        for (int i = 0; i < count_commands; i++){
-            char* job_temp = (char*) malloc ((strlen(job[i])+1)*sizeof(char));
-            //FIXME check for malloc
-            strcpy(job_temp,job[i]);
-            char* command_token = strtok(job_temp, " "); //separate between basic command parameters
-            if (strcmp(command_token, "increment") == 0){
-                char* x = strtok(NULL, " "); //FIXME
-                char file_name[13];
-                int counter_number = (int) strtol(x, &end_ptr, 10);
-                // if (*end_ptr != '\0') {
-                // fprintf(stderr, "Error: strtol failed.4, Job lost\n");
-                // exit(1);
-                // }
-                counter_file_name(x, file_name);
-                update_counter_file(file_name, 1,counter_number);
-            }
-            if (strcmp(command_token, "decrement") == 0){
-                char* x = strtok(NULL, " ");
-                char file_name[13];
-                int counter_number = strtol(x, &end_ptr, 10);
-                // if (*end_ptr != '\0') {
-                // fprintf(stderr, "Error: strtol failed.5\n");
-                // exit(1);
-                // }
-                counter_file_name(x, file_name);
-                update_counter_file(file_name, -1,counter_number);
-            }
-            if (strcmp(command_token, "msleep") == 0)
-            {
-                char* x = strtok(NULL, " ");
-                int x_sleep = (int)strtol(x, &end_ptr, 10);
-                // if (*end_ptr != '\0') {
-                // fprintf(stderr, "Error: strtol failed.6\n");
-                // exit(1);
-                // }
-                usleep(x_sleep*1000);
-            }
-            if (strcmp(command_token, "repeat") == 0)
-            {
-                char* x = strtok(NULL, " ");
-                int x_repeat = (int)strtol(x,&end_ptr, 10);
-                // if (*end_ptr != '\0') {
-                // fprintf(stderr, "Error: strtol failed.7\n");
-                // exit(1);
-                // }
-                repeat(i, job, count_commands, x_repeat);
-                break;
-            }
-            free(job_temp);
-        }
+        // Job execution
+        execute_command_line(num_of_basic_commands,parsed_command_line);
 
-        //Trace handling
+        //Stop point for job-execution time
         time_t job_ended_time = clock();
         long long job_end_elapsed_time = ((long long)(job_ended_time - *start_known_to_w) *1000) / CLOCKS_PER_SEC;
-        fprintf(thread_log_file, "TIME %lld: END job %s\n", job_end_elapsed_time, command);
-        free_parsed_command(job,count_commands);
+        fprintf(thread_log_file, "TIME %lld: END job %s\n", job_end_elapsed_time, command_line);
 
+        //Free all allocated memory - parsed_command_line
+        free_parsed_command(parsed_command_line,num_of_basic_commands); //FIXME - free each parsed_command_line [i]
+        
         //Log and statistics handling
         pthread_mutex_lock(&global_time_vars_mutex);
         long long delta_worktime = ((long long)(job_ended_time - job_start_elapsed_time) *1000) / CLOCKS_PER_SEC;
@@ -436,10 +380,7 @@ void* worker_main(void *data)
         }
         fclose(thread_log_file);
         number_of_jobs++;
-        pthread_mutex_unlock(&global_time_vars_mutex);
-
-        // FIX ME - IF dispatcher wake some threads or all threads after pushing to FIFO the next line is not needed
-        //pthread_cond_broadcast(&wake_up_worker);
+        pthread_mutex_unlock(&global_time_vars_mutex);   
 
         //Handle awake workers counter - decrement + wake-up call to dispatcher
         pthread_mutex_lock(&num_awake_workers_mutex);
@@ -448,11 +389,66 @@ void* worker_main(void *data)
         pthread_mutex_unlock(&num_awake_workers_mutex);
 
     } // end of while(1)
-
-    pthread_exit(NULL);
     return 0;
 
 }
+
+void execute_command_line(int num_of_basic_commands, char** parsed_command_line ){
+    for (int i = 0; i < num_of_basic_commands; i++){
+
+            char* command_copy = (char*) malloc ((strlen(parsed_command_line[i])+1)*sizeof(char));
+            if (command_copy == NULL)
+            {
+                fprintf(stderr, "Error: Memory allocation failed for job %d.\n",i);
+                free (command_copy);
+                exit(1);
+            }
+            
+            //Copy
+            strcpy(command_copy,parsed_command_line[i]);
+
+            //Parse by " "
+            char *saveptr;
+            char* command_token = strtok_r(command_copy, " ",&saveptr);
+            if (command_token == NULL)
+            {
+                fprintf(stderr, "Error: strtok failed for command %d :%s\n",i,parsed_command_line[i]);
+                free (command_copy);
+                exit(1);
+            }
+            
+            if (strcmp(command_token, "increment") == 0){
+                command_token = strtok_r(NULL, " ",&saveptr);
+                char file_name[COUNTER_FILE_NAME_WIDTH];
+                int counter_number = (int) strtol(command_token,NULL, 10);
+                make_file_name(command_token, file_name);
+                update_counter_file(file_name, 1,counter_number);
+            }
+            if (strcmp(command_token, "decrement") == 0){
+                char* x = strtok_r(NULL, " ",&saveptr);
+                char file_name[COUNTER_FILE_NAME_WIDTH];
+                int counter_number = strtol(x, NULL, 10);
+                make_file_name(x, file_name);
+                update_counter_file(file_name, -1,counter_number);
+            }
+            if (strcmp(command_token, "msleep") == 0)
+            {
+                char* x = strtok_r(NULL, " ",&saveptr);
+                int x_sleep = (int)strtol(x, NULL, 10);
+                usleep(x_sleep*1000);
+            }
+            if (strcmp(command_token, "repeat") == 0)
+            {
+                char* x = strtok_r(NULL, " ",&saveptr);
+                int x_repeat = (int)strtol(x,NULL, 10);
+                repeat(i, parsed_command_line, num_of_basic_commands, x_repeat);
+                break;
+            }
+            free(command_copy);
+            command_copy = NULL;
+        }
+}
+
 
 //Dispatcher code - main function
 
@@ -474,7 +470,6 @@ int main(int argc, char* argv[])
     bool empty = false;
     worker_data thread_data[MAX_NUM_OF_THREADS];
     int sleep_time =0;
-    char* end_ptr = NULL; //string for strtol usage
     
     //Analyze the command line arguments
     if (argc != 5) {
@@ -482,21 +477,9 @@ int main(int argc, char* argv[])
                 exit(1);
                 }
 
-    int num_counters = (int) strtol(argv[3],&end_ptr,10);
-    if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed\n");
-                exit(1);
-                }
-    int num_threads = (int) strtol(argv[2],&end_ptr,10);
-    if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed\n");
-                exit(1);
-                }
-    int log_enabled = (int) strtol(argv[4],&end_ptr,10);
-    if (*end_ptr != '\0') {
-                fprintf(stderr, "Error: strtol failed\n");
-                exit(1);
-                }
+    int num_counters = (int) strtol(argv[3],NULL,10);
+    int num_threads = (int) strtol(argv[2],NULL,10);
+    int log_enabled = (int) strtol(argv[4],NULL,10);
 
     FILE* cmd_file_fp = fopen(argv[1],"r");
     if (cmd_file_fp == NULL) {
@@ -555,8 +538,10 @@ int main(int argc, char* argv[])
     //Read the jobs from the cmdfile
     char job[MAX_LINE_WIDTH];
     while (fgets(job,MAX_LINE_WIDTH,cmd_file_fp)){
+        char* saveptr;
         char* new_line = strchr(job,'\n');
 
+        //FIXME - correct it according to possible input
         if (new_line)
         {
             *new_line = '\0';
@@ -565,7 +550,7 @@ int main(int argc, char* argv[])
         if (strcmp(job, "\n") == 0) continue; //empty line = "\n"
 
         //Separate between worker and dispathcer job
-        char* token = strtok(job," "); // FIXME - check with Gadi, IGOR
+        char* token = strtok_r(job," ",&saveptr); // FIXME - check with Gadi, IGOR
         if (token == NULL) {
                 fprintf(stderr, "Error:strtok failed.\n");
                 exit(1);
@@ -574,13 +559,13 @@ int main(int argc, char* argv[])
         //Dispatcher code
         if (strcmp(token,"dispatcher") == 0)
         {
-            token = strtok(NULL," "); 
+            token = strtok_r(NULL," ",&saveptr); 
             if (token == NULL) {
             fprintf(stderr, "Error: missing command after 'dispatcher'.\n");
             exit(1);
             }
 
-            if (strcmp(token,"wait") == 0)
+            if (strcmp(token,"_wait") == 0)
             {
                 pthread_mutex_lock(&num_awake_workers_mutex); // FIFO MUTEX LOCK
                 while (num_awake_workers>0)
@@ -590,14 +575,14 @@ int main(int argc, char* argv[])
                 pthread_mutex_unlock(&num_awake_workers_mutex); // FIFO MUTEX UNLOCK
             }
 
-            if (strcmp(token,"sleep") == 0)
+            if (strcmp(token,"_sleep") == 0)
             {
-                token = strtok(NULL,"\n");// fetch the X var - time for sleep
+                token = strtok_r(NULL," ",&saveptr);// fetch the X var - time for sleep
                 if (token == NULL) {
                 fprintf(stderr, "Error: missing sleep time after 'sleep'.\n");
                 exit(1);
                 }
-                sleep_time = (int) strtol(token,&end_ptr,10); //sleeptime in miliseconds
+                sleep_time = (int) strtol(token,NULL,10); //sleeptime in miliseconds
                 usleep (1000*sleep_time);
             }
 
@@ -628,6 +613,7 @@ int main(int argc, char* argv[])
             pthread_mutex_unlock(&fifo_mutex); // FIFO MUTEX UNLOCK
         } //End of worker code
     }
+
     ////////////////////////////////////////////////////
     //////////////////Exit Dispatcher///////////////////
     ////////////////////////////////////////////////////
@@ -668,7 +654,6 @@ int main(int argc, char* argv[])
     if (counters_names[i] != NULL){
     free(counters_names[i]); 
     counters_names[i] = NULL;}
-
     }
 
     //Free FIFO
